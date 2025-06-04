@@ -23,16 +23,15 @@ export default function AnalysisInterface({
 }: AnalysisInterfaceProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   
-  const { metrics, feedback } = usePoseDetection(videoElement, selectedExercise, isActive);
+  const { metrics, feedback, processPoseResultsCallback } = usePoseDetection(selectedExercise, isActive);
 
   const handleVideoReady = useCallback((video: HTMLVideoElement) => {
     setVideoElement(video);
   }, []);
 
   const handlePoseResults = useCallback((results: Results) => {
-    // This is handled by the usePoseDetection hook
-    // The hook will process the results internally
-  }, []);
+    processPoseResultsCallback(results);
+  }, [processPoseResultsCallback]);
 
   const exercise = exercises[selectedExercise];
 

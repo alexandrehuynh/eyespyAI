@@ -16,7 +16,7 @@ export interface PoseFeedback {
   icon: string;
 }
 
-export function usePoseDetection(videoElement: HTMLVideoElement | null, exercise: Exercise, isActive: boolean) {
+export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const [metrics, setMetrics] = useState<PoseMetrics>({
     formQuality: 0,
     reps: 0,
@@ -368,66 +368,10 @@ export function usePoseDetection(videoElement: HTMLVideoElement | null, exercise
     }
   }, [exercise, analyzeSquat, analyzePushUp, analyzePlank]);
 
-  // Initialize MediaPipe Pose
-  useEffect(() => {
-    if (!isActive || !videoElement) return;
-
-    const initializePose = async () => {
-      try {
-        const pose = new Pose({
-          locateFile: (file) => {
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
-          }
-        });
-
-        pose.setOptions({
-          modelComplexity: 1,
-          smoothLandmarks: true,
-          enableSegmentation: false,
-          smoothSegmentation: false,
-          minDetectionConfidence: 0.5,
-          minTrackingConfidence: 0.5
-        });
-
-        pose.onResults(processPoseResults);
-        poseRef.current = pose;
-
-        // Start processing video frames
-        const processFrame = async () => {
-          if (videoElement && poseRef.current && isActive) {
-            await poseRef.current.send({ image: videoElement });
-            animationRef.current = requestAnimationFrame(processFrame);
-          }
-        };
-
-        // Wait for video to be ready
-        if (videoElement.readyState >= 2) {
-          processFrame();
-        } else {
-          videoElement.addEventListener('loadeddata', processFrame);
-        }
-
-      } catch (error) {
-        console.error('Error initializing MediaPipe Pose:', error);
-        setFeedback([{
-          type: 'error',
-          message: 'Failed to initialize pose detection',
-          icon: '❌'
-        }]);
-      }
-    };
-
-    initializePose();
-
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-      if (poseRef.current) {
-        poseRef.current.close();
-      }
-    };
-  }, [isActive, videoElement, processPoseResults]);
+  // Create a callback function to process pose results
+  const processPoseResultsCallback = useCallback((results: Results) => {
+    processPoseResults(results);
+  }, [processPoseResults]);
 
   // Reset when exercise changes or analysis stops
   useEffect(() => {
@@ -446,5 +390,5 @@ export function usePoseDetection(videoElement: HTMLVideoElement | null, exercise
     }
   }, [isActive, exercise]);
 
-  return { metrics, feedback };
+  return { metrics, feedback, processPoseResultsCallback };
 }

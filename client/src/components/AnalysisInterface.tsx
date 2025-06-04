@@ -23,7 +23,7 @@ export default function AnalysisInterface({
 }: AnalysisInterfaceProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   
-  const { metrics, feedback, processPoseResultsCallback } = usePoseDetection(selectedExercise, isActive);
+  const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
 
   const handleVideoReady = useCallback((video: HTMLVideoElement) => {
     setVideoElement(video);
@@ -42,7 +42,18 @@ export default function AnalysisInterface({
         {/* Camera Feed Section */}
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
-          <CameraView isActive={isActive} onVideoReady={handleVideoReady} onPoseResults={handlePoseResults} />
+          <div className="relative">
+            <CameraView isActive={isActive} onVideoReady={handleVideoReady} onPoseResults={handlePoseResults} />
+            
+            {/* Rep Flash Indicator */}
+            {repFlash && (
+              <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
+                <div className="bg-green-500/90 text-white px-8 py-4 rounded-2xl text-2xl font-bold animate-pulse">
+                  🎯 REP DETECTED!
+                </div>
+              </div>
+            )}
+          </div>
         </div>
 
         {/* Real-time Feedback Section */}

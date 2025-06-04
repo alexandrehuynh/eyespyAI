@@ -37,6 +37,13 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const repCounterRef = useRef(0);
   const lastRepTimeRef = useRef(0);
   const exerciseStateRef = useRef<'up' | 'down' | 'neutral'>('neutral');
+  const repFlashRef = useRef(false);
+  
+  // Rep validation thresholds
+  const REP_COOLDOWN_MS = 2000; // 2 seconds between reps
+  const SQUAT_HEIGHT_THRESHOLD = 0.15; // Minimum hip height change for squat
+  const PUSHUP_ANGLE_THRESHOLD = 30; // Minimum angle change for push-up
+  const POSITION_STABILITY_FRAMES = 5; // Frames to confirm position
 
   // Session timer
   useEffect(() => {
@@ -85,7 +92,103 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
     const avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2;
 
-    // Calculate hip angle (torso lean)
+    // Calculate hip height (Y coordinate - lower Y means higher position)
+    const hipHeight = (leftHip.y + rightHip.y) / 2;
+
+    // Store position history for stability check
+    previousPositionsRef.current.push({
+      hipHeight,
+      kneeAngle: avgKneeAngle,
+      timestamp: Date.now()
+    });
+
+    // Keep only recent positions (last 10 frames)
+    if (previousPositionsRef.current.length > 10) {
+      previousPositionsRef.current.shift();
+    }
+
+    // Determine squat position with strict validation
+    let currentState = exerciseStateRef.current;
+    const now = Date.now();
+    let repDetected = false;
+
+    // Only process if we have enough position history
+    if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
+      const recentPositions = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES);
+      const avgRecentHipHeight = recentPositions.reduce((sum, pos) => sum + pos.hipHeight, 0) / recentPositions.length;
+      const avgRecentKneeAngle = recentPositions.reduce((sum, pos) => sum + pos.kneeAngle, 0) / recentPositions.length;
+
+      // Check for significant hip height change (squat depth)
+      if (currentState === 'neutral' || currentState === 'up') {
+        // Check if person is going down (hip getting lower = higher Y value)
+        if (avgRecentKneeAngle < 110 && avgRecentHipHeight > 0.6) {
+          // Verify this is a stable squat position
+          const isStableDown = recentPositions.every(pos => 
+            pos.kneeAngle < 120 && pos.hipHeight > 0.55
+          );
+          
+          if (isStableDown) {
+            currentState = 'down';
+            exerciseStateRef.current = 'down';
+          }
+        }
+      } else if (currentState === 'down') {
+        // Check if person is coming back up
+        if (avgRecentKneeAngle > 140 && avgRecentHipHeight < 0.5) {
+          // Verify this is a stable up position
+          const isStableUp = recentPositions.every(pos => 
+            pos.kneeAngle > 135 && pos.hipHeight < 0.55
+          );
+          
+          if (isStableUp && (now - lastRepTimeRef.current) > REP_COOLDOWN_MS) {
+            currentState = 'up';
+            exerciseStateRef.current = 'up';
+            repCounterRef.current += 1;
+            lastRepTimeRef.current = now;
+            repDetected = true;
+            repFlashRef.current = true;
+            
+            // Clear flash after 1 second
+            setTimeout(() => {
+              repFlashRef.current = false;
+            }, 1000);
+          }
+        }
+      }
+    }
+
+    // Calculate form quality
+    let formScore = 100;
+    let feedbackMessages: PoseFeedback[] = [];
+
+    // Add rep detected feedback
+    if (repDetected) {
+      feedbackMessages.push({
+        type: 'success',
+        message: 'Rep Detected! Great form!',
+        icon: '🎯'
+      });
+    }
+
+    // Check depth only when in down position
+    if (currentState === 'down') {
+      if (avgKneeAngle > 110) {
+        formScore -= 20;
+        feedbackMessages.push({
+          type: 'warning',
+          message: 'Squat deeper - knees should reach 90 degrees',
+          icon: '⚠️'
+        });
+      } else if (avgKneeAngle <= 90) {
+        feedbackMessages.push({
+          type: 'success',
+          message: 'Perfect squat depth!',
+          icon: '✅'
+        });
+      }
+    }
+
+    // Calculate torso angle (torso lean)
     const leftShoulder = landmarks[11];
     const hipMidpoint = {
       x: (leftHip.x + rightHip.x) / 2,
@@ -98,40 +201,6 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
 
     const torsoAngle = calculateAngle(leftShoulder, hipMidpoint, kneeMidpoint);
 
-    // Determine squat position and count reps
-    let currentState = exerciseStateRef.current;
-    const now = Date.now();
-
-    if (avgKneeAngle < 100 && currentState !== 'down') {
-      currentState = 'down';
-      exerciseStateRef.current = 'down';
-    } else if (avgKneeAngle > 140 && currentState === 'down' && now - lastRepTimeRef.current > 1000) {
-      currentState = 'up';
-      exerciseStateRef.current = 'up';
-      repCounterRef.current += 1;
-      lastRepTimeRef.current = now;
-    }
-
-    // Calculate form quality
-    let formScore = 100;
-    let feedbackMessages: PoseFeedback[] = [];
-
-    // Check depth
-    if (avgKneeAngle > 110 && currentState === 'down') {
-      formScore -= 20;
-      feedbackMessages.push({
-        type: 'warning',
-        message: 'Squat deeper - knees should reach 90 degrees',
-        icon: '⚠️'
-      });
-    } else if (currentState === 'down' && avgKneeAngle <= 90) {
-      feedbackMessages.push({
-        type: 'success',
-        message: 'Perfect squat depth!',
-        icon: '✅'
-      });
-    }
-
     // Check torso position
     if (torsoAngle < 70) {
       formScore -= 15;
@@ -140,7 +209,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         message: 'Keep your torso more upright',
         icon: '⚠️'
       });
-    } else if (torsoAngle > 85) {
+    } else if (torsoAngle > 85 && currentState === 'down') {
       feedbackMessages.push({
         type: 'success',
         message: 'Excellent torso position',
@@ -159,11 +228,14 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       });
     }
 
+    // Only consider exercising if in a clear squat position
+    const isExercising = currentState === 'down' || (avgKneeAngle < 140 && hipHeight > 0.5);
+
     return {
       formQuality: Math.max(formScore, 0),
       reps: repCounterRef.current,
       feedback: feedbackMessages,
-      isExercising: currentState !== 'neutral' || avgKneeAngle < 150
+      isExercising
     };
   }, [calculateAngle]);
 
@@ -183,66 +255,149 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
     const avgElbowAngle = (leftElbowAngle + rightElbowAngle) / 2;
 
-    // Determine push-up position and count reps
+    // Calculate torso height (shoulder Y position - lower Y means higher/up position)
+    const shoulderHeight = (leftShoulder.y + rightShoulder.y) / 2;
+
+    // Store position history for stability check
+    previousPositionsRef.current.push({
+      shoulderHeight,
+      elbowAngle: avgElbowAngle,
+      timestamp: Date.now()
+    });
+
+    // Keep only recent positions (last 10 frames)
+    if (previousPositionsRef.current.length > 10) {
+      previousPositionsRef.current.shift();
+    }
+
+    // Determine push-up position with strict validation
     let currentState = exerciseStateRef.current;
     const now = Date.now();
+    let repDetected = false;
 
-    if (avgElbowAngle < 100 && currentState !== 'down') {
-      currentState = 'down';
-      exerciseStateRef.current = 'down';
-    } else if (avgElbowAngle > 150 && currentState === 'down' && now - lastRepTimeRef.current > 1000) {
-      currentState = 'up';
-      exerciseStateRef.current = 'up';
-      repCounterRef.current += 1;
-      lastRepTimeRef.current = now;
+    // Check if person is in push-up position (horizontal body alignment required)
+    const leftHip = landmarks[23];
+    const rightHip = landmarks[24];
+    const shoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+    const hip = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+    
+    // Check if body is roughly horizontal (push-up position)
+    const bodyTilt = Math.abs(shoulder.y - hip.y);
+    const isInPushUpPosition = bodyTilt < 0.3 && shoulder.y > 0.3; // Body horizontal and not standing
+
+    // Only process if we have enough position history and in push-up position
+    if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES && isInPushUpPosition) {
+      const recentPositions = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES);
+      const avgRecentShoulderHeight = recentPositions.reduce((sum, pos) => sum + pos.shoulderHeight, 0) / recentPositions.length;
+      const avgRecentElbowAngle = recentPositions.reduce((sum, pos) => sum + pos.elbowAngle, 0) / recentPositions.length;
+
+      // Check for significant elbow angle change (push-up depth)
+      if (currentState === 'neutral' || currentState === 'up') {
+        // Check if person is going down (elbows bending, shoulder getting lower)
+        if (avgRecentElbowAngle < 110 && avgRecentShoulderHeight > 0.4) {
+          // Verify this is a stable down position
+          const isStableDown = recentPositions.every(pos => 
+            pos.elbowAngle < 120 && pos.shoulderHeight > 0.35
+          );
+          
+          if (isStableDown) {
+            currentState = 'down';
+            exerciseStateRef.current = 'down';
+          }
+        }
+      } else if (currentState === 'down') {
+        // Check if person is pushing back up
+        if (avgRecentElbowAngle > 150 && avgRecentShoulderHeight < 0.4) {
+          // Verify this is a stable up position
+          const isStableUp = recentPositions.every(pos => 
+            pos.elbowAngle > 145 && pos.shoulderHeight < 0.45
+          );
+          
+          if (isStableUp && (now - lastRepTimeRef.current) > REP_COOLDOWN_MS) {
+            currentState = 'up';
+            exerciseStateRef.current = 'up';
+            repCounterRef.current += 1;
+            lastRepTimeRef.current = now;
+            repDetected = true;
+            repFlashRef.current = true;
+            
+            // Clear flash after 1 second
+            setTimeout(() => {
+              repFlashRef.current = false;
+            }, 1000);
+          }
+        }
+      }
     }
 
     // Calculate form quality
     let formScore = 100;
     let feedbackMessages: PoseFeedback[] = [];
 
-    // Check depth
-    if (avgElbowAngle > 110 && currentState === 'down') {
-      formScore -= 20;
-      feedbackMessages.push({
-        type: 'warning',
-        message: 'Lower yourself more - elbows should reach 90 degrees',
-        icon: '⚠️'
-      });
-    } else if (currentState === 'down' && avgElbowAngle <= 100) {
+    // Add rep detected feedback
+    if (repDetected) {
       feedbackMessages.push({
         type: 'success',
-        message: 'Perfect push-up depth!',
-        icon: '✅'
+        message: 'Rep Detected! Excellent push-up!',
+        icon: '🎯'
       });
     }
 
-    // Check body alignment
-    const shoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
-    const hip = { x: (landmarks[23].x + landmarks[24].x) / 2, y: (landmarks[23].y + landmarks[24].y) / 2 };
-    const ankle = { x: (landmarks[27].x + landmarks[28].x) / 2, y: (landmarks[27].y + landmarks[28].y) / 2 };
-
-    const bodyAlignment = Math.abs(shoulder.y - hip.y) + Math.abs(hip.y - ankle.y);
-    if (bodyAlignment > 0.2) {
-      formScore -= 15;
+    // Only give feedback if in push-up position
+    if (!isInPushUpPosition) {
       feedbackMessages.push({
         type: 'warning',
-        message: 'Keep your body in a straight line',
-        icon: '⚠️'
+        message: 'Get into push-up position to start analysis',
+        icon: '💪'
       });
+      formScore = 0;
     } else {
-      feedbackMessages.push({
-        type: 'success',
-        message: 'Great body alignment',
-        icon: '✅'
-      });
+      // Check depth only when in down position
+      if (currentState === 'down') {
+        if (avgElbowAngle > 110) {
+          formScore -= 20;
+          feedbackMessages.push({
+            type: 'warning',
+            message: 'Lower yourself more - elbows should reach 90 degrees',
+            icon: '⚠️'
+          });
+        } else if (avgElbowAngle <= 100) {
+          feedbackMessages.push({
+            type: 'success',
+            message: 'Perfect push-up depth!',
+            icon: '✅'
+          });
+        }
+      }
+
+      // Check body alignment
+      const ankle = { x: (landmarks[27].x + landmarks[28].x) / 2, y: (landmarks[27].y + landmarks[28].y) / 2 };
+      const bodyAlignment = Math.abs(shoulder.y - hip.y) + Math.abs(hip.y - ankle.y);
+      
+      if (bodyAlignment > 0.2) {
+        formScore -= 15;
+        feedbackMessages.push({
+          type: 'warning',
+          message: 'Keep your body in a straight line',
+          icon: '⚠️'
+        });
+      } else if (currentState !== 'neutral') {
+        feedbackMessages.push({
+          type: 'success',
+          message: 'Great body alignment',
+          icon: '✅'
+        });
+      }
     }
+
+    // Only consider exercising if in push-up position and moving
+    const isExercising = isInPushUpPosition && (currentState === 'down' || avgElbowAngle < 160);
 
     return {
       formQuality: Math.max(formScore, 0),
       reps: repCounterRef.current,
       feedback: feedbackMessages,
-      isExercising: currentState !== 'neutral' || avgElbowAngle < 170
+      isExercising
     };
   }, [calculateAngle]);
 
@@ -256,63 +411,92 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     const rightHip = landmarks[24];
     const leftAnkle = landmarks[27];
     const rightAnkle = landmarks[28];
+    const leftElbow = landmarks[13];
+    const rightElbow = landmarks[14];
 
     // Calculate body alignment
     const shoulder = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
     const hip = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
     const ankle = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
+    const elbow = { x: (leftElbow.x + rightElbow.x) / 2, y: (leftElbow.y + rightElbow.y) / 2 };
 
-    // Check if in plank position (shoulders, hips, ankles aligned)
+    // Check if in plank position (shoulders, hips, ankles aligned and horizontal)
     const shoulderHipDiff = Math.abs(shoulder.y - hip.y);
     const hipAnkleDiff = Math.abs(hip.y - ankle.y);
     const totalAlignment = shoulderHipDiff + hipAnkleDiff;
+    
+    // Check if body is roughly horizontal (plank position)
+    const isHorizontal = shoulder.y > 0.3 && hip.y > 0.3; // Not standing
+    const isInPlankPosition = totalAlignment < 0.25 && isHorizontal;
 
     // Calculate form quality
     let formScore = 100;
     let feedbackMessages: PoseFeedback[] = [];
 
-    if (totalAlignment > 0.15) {
-      formScore -= 30;
-      if (hip.y < shoulder.y) {
+    // Only analyze if in plank position
+    if (!isInPlankPosition) {
+      feedbackMessages.push({
+        type: 'warning',
+        message: 'Get into plank position to start analysis',
+        icon: '🧘'
+      });
+      formScore = 0;
+    } else {
+      // Check body alignment
+      if (totalAlignment > 0.15) {
+        formScore -= 30;
+        if (hip.y < shoulder.y - 0.05) {
+          feedbackMessages.push({
+            type: 'warning',
+            message: 'Lower your hips - avoid pike position',
+            icon: '⚠️'
+          });
+        } else if (hip.y > shoulder.y + 0.05) {
+          feedbackMessages.push({
+            type: 'warning',
+            message: 'Raise your hips - avoid sagging',
+            icon: '⚠️'
+          });
+        }
+      } else {
+        feedbackMessages.push({
+          type: 'success',
+          message: 'Perfect plank alignment!',
+          icon: '✅'
+        });
+      }
+
+      // Check elbow position for forearm plank
+      if (Math.abs(elbow.x - shoulder.x) > 0.1) {
+        formScore -= 15;
         feedbackMessages.push({
           type: 'warning',
-          message: 'Lower your hips - avoid pike position',
+          message: 'Keep elbows under shoulders',
           icon: '⚠️'
         });
       } else {
         feedbackMessages.push({
-          type: 'warning',
-          message: 'Raise your hips - avoid sagging',
-          icon: '⚠️'
+          type: 'success',
+          message: 'Great elbow placement',
+          icon: '✅'
         });
       }
-    } else {
-      feedbackMessages.push({
-        type: 'success',
-        message: 'Perfect plank alignment!',
-        icon: '✅'
-      });
-    }
 
-    // Check elbow position for forearm plank
-    const leftElbow = landmarks[13];
-    const rightElbow = landmarks[14];
-    const elbow = { x: (leftElbow.x + rightElbow.x) / 2, y: (leftElbow.y + rightElbow.y) / 2 };
-    
-    if (Math.abs(elbow.x - shoulder.x) > 0.1) {
-      formScore -= 15;
-      feedbackMessages.push({
-        type: 'warning',
-        message: 'Keep elbows under shoulders',
-        icon: '⚠️'
-      });
+      // Check for core engagement (stable position)
+      if (totalAlignment < 0.1) {
+        feedbackMessages.push({
+          type: 'success',
+          message: 'Excellent core engagement!',
+          icon: '💪'
+        });
+      }
     }
 
     return {
       formQuality: Math.max(formScore, 0),
       reps: 0, // Plank is time-based, not rep-based
       feedback: feedbackMessages,
-      isExercising: totalAlignment < 0.3 // Person is in plank-like position
+      isExercising: isInPlankPosition // Person is in plank position
     };
   }, []);
 
@@ -378,6 +562,9 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     if (!isActive) {
       repCounterRef.current = 0;
       exerciseStateRef.current = 'neutral';
+      lastRepTimeRef.current = 0;
+      previousPositionsRef.current = []; // Clear position history
+      repFlashRef.current = false;
       setSessionSeconds(0);
       setMetrics({
         formQuality: 0,
@@ -390,5 +577,14 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     }
   }, [isActive, exercise]);
 
-  return { metrics, feedback, processPoseResultsCallback };
+  // Clear position history when exercise type changes
+  useEffect(() => {
+    previousPositionsRef.current = [];
+    repCounterRef.current = 0;
+    exerciseStateRef.current = 'neutral';
+    lastRepTimeRef.current = 0;
+    repFlashRef.current = false;
+  }, [exercise]);
+
+  return { metrics, feedback, processPoseResultsCallback, repFlash: repFlashRef.current };
 }

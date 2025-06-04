@@ -6,9 +6,11 @@ interface CameraViewProps {
   isActive: boolean;
   onVideoReady?: (video: HTMLVideoElement) => void;
   onPoseResults?: (results: Results) => void;
+  trackingStatus?: 'optimal' | 'too_close' | 'partial' | 'lost' | 'repositioning';
+  detectionQuality?: 'poor' | 'good' | 'excellent';
 }
 
-export default function CameraView({ isActive, onVideoReady, onPoseResults }: CameraViewProps) {
+export default function CameraView({ isActive, onVideoReady, onPoseResults, trackingStatus = 'lost', detectionQuality = 'poor' }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -136,8 +138,40 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults }: Ca
     );
   }
 
+  // Get border color based on tracking status
+  const getBorderColor = () => {
+    switch (trackingStatus) {
+      case 'optimal':
+        return 'border-green-500';
+      case 'too_close':
+        return 'border-yellow-400';
+      case 'partial':
+        return 'border-orange-400';
+      case 'lost':
+        return 'border-red-500';
+      case 'repositioning':
+        return 'border-blue-400';
+      default:
+        return 'border-slate-700/50';
+    }
+  };
+
+  // Get quality indicator color
+  const getQualityColor = () => {
+    switch (detectionQuality) {
+      case 'excellent':
+        return 'text-green-500 bg-green-500/20';
+      case 'good':
+        return 'text-yellow-400 bg-yellow-400/20';
+      case 'poor':
+        return 'text-red-400 bg-red-400/20';
+      default:
+        return 'text-gray-400 bg-gray-400/20';
+    }
+  };
+
   return (
-    <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-slate-700/50">
+    <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border-2 transition-colors duration-300 ${getBorderColor()}`}>
       <video
         ref={videoRef}
         autoPlay
@@ -153,17 +187,36 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults }: Ca
         onPoseResults={onPoseResults}
       />
       
+      {/* Detection Quality Indicator */}
+      <div className={`absolute top-4 left-4 flex items-center space-x-2 backdrop-blur-sm px-3 py-2 rounded-lg z-20 ${getQualityColor()}`}>
+        <div className={`w-3 h-3 rounded-full ${trackingStatus === 'optimal' ? 'animate-pulse' : ''} ${
+          detectionQuality === 'excellent' ? 'bg-green-500' :
+          detectionQuality === 'good' ? 'bg-yellow-400' : 'bg-red-400'
+        }`}></div>
+        <span className="text-sm font-medium">
+          {detectionQuality === 'excellent' ? 'EXCELLENT' :
+           detectionQuality === 'good' ? 'GOOD' : 'POOR'} TRACKING
+        </span>
+      </div>
+
       {/* Recording Indicator */}
       <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg z-20">
         <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
         <span className="text-sm font-medium">RECORDING</span>
       </div>
 
-      {/* AI Overlay Indicators */}
-      <div className="absolute top-4 left-4 flex items-center space-x-2 bg-blue-500/20 backdrop-blur-sm px-3 py-2 rounded-lg z-20">
-        <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
-        <span className="text-sm font-medium">AI TRACKING</span>
-      </div>
+      {/* Tracking Status Message */}
+      {trackingStatus !== 'optimal' && (
+        <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur-sm px-4 py-2 rounded-lg z-20">
+          <span className="text-sm font-medium text-white">
+            {trackingStatus === 'too_close' ? 'Move back for better tracking' :
+             trackingStatus === 'partial' ? 'Stand fully in frame' :
+             trackingStatus === 'lost' ? 'No person detected' :
+             trackingStatus === 'repositioning' ? 'Tracking lost - repositioning...' :
+             'Adjusting tracking...'}
+          </span>
+        </div>
+      )}
     </div>
   );
 }

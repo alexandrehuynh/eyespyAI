@@ -24,7 +24,9 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     reps: 0,
     sessionTime: '00:00',
     isPersonDetected: false,
-    isExercising: false
+    isExercising: false,
+    detectionQuality: 'poor',
+    trackingStatus: 'lost'
   });
   
   const [feedback, setFeedback] = useState<PoseFeedback[]>([]);
@@ -502,35 +504,134 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     };
   }, []);
 
+  // Assess pose detection quality
+  const assessPoseQuality = useCallback((results: Results) => {
+    if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+      return {
+        detectionQuality: 'poor' as const,
+        trackingStatus: 'lost' as const,
+        confidence: 0,
+        completeness: 0
+      };
+    }
+
+    const landmarks = results.poseLandmarks;
+    
+    // Calculate average visibility
+    const visibleLandmarks = landmarks.filter(landmark => (landmark.visibility || 0) > 0.5);
+    const avgVisibility = visibleLandmarks.length > 0 
+      ? visibleLandmarks.reduce((sum, landmark) => sum + (landmark.visibility || 0), 0) / visibleLandmarks.length 
+      : 0;
+    
+    // Check completeness - key body parts should be visible
+    const keyLandmarks = [11, 12, 23, 24, 25, 26, 13, 14]; // shoulders, hips, knees, elbows
+    const visibleKeyLandmarks = keyLandmarks.filter(index => 
+      landmarks[index] && (landmarks[index].visibility || 0) > 0.5
+    );
+    const completeness = visibleKeyLandmarks.length / keyLandmarks.length;
+    
+    // Check if person is too close (landmarks spread too wide)
+    const leftShoulder = landmarks[11];
+    const rightShoulder = landmarks[12];
+    const shoulderWidth = leftShoulder && rightShoulder 
+      ? Math.abs(leftShoulder.x - rightShoulder.x) 
+      : 0;
+    
+    // Check if person is partially in frame
+    const leftAnkle = landmarks[27];
+    const rightAnkle = landmarks[28];
+    const isPartiallyVisible = 
+      !leftAnkle || !rightAnkle || 
+      leftAnkle.x < 0.05 || rightAnkle.x > 0.95 ||
+      leftAnkle.y > 0.95 || rightAnkle.y > 0.95;
+    
+    // Determine tracking status
+    let trackingStatus: 'optimal' | 'too_close' | 'partial' | 'lost' | 'repositioning';
+    
+    if (completeness < 0.5) {
+      trackingStatus = 'lost';
+    } else if (shoulderWidth > 0.6) {
+      trackingStatus = 'too_close';
+    } else if (isPartiallyVisible || completeness < 0.75) {
+      trackingStatus = 'partial';
+    } else if (avgVisibility < 0.7) {
+      trackingStatus = 'repositioning';
+    } else {
+      trackingStatus = 'optimal';
+    }
+    
+    // Determine detection quality
+    let detectionQuality: 'poor' | 'good' | 'excellent';
+    
+    if (avgVisibility >= 0.8 && completeness >= 0.9 && trackingStatus === 'optimal') {
+      detectionQuality = 'excellent';
+    } else if (avgVisibility >= 0.6 && completeness >= 0.75) {
+      detectionQuality = 'good';
+    } else {
+      detectionQuality = 'poor';
+    }
+    
+    return {
+      detectionQuality,
+      trackingStatus,
+      confidence: avgVisibility,
+      completeness
+    };
+  }, []);
+
+  // Get tracking feedback message
+  const getTrackingMessage = useCallback((status: string) => {
+    switch (status) {
+      case 'optimal':
+        return 'Perfect tracking - continue exercise';
+      case 'too_close':
+        return 'Move back for better tracking';
+      case 'partial':
+        return 'Stand fully in frame';
+      case 'lost':
+        return 'No person detected';
+      case 'repositioning':
+        return 'Tracking lost - repositioning...';
+      default:
+        return 'Adjusting tracking...';
+    }
+  }, []);
+
   // Process pose results
   const processPoseResults = useCallback((results: Results) => {
+    const quality = assessPoseQuality(results);
+    
     if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
       setMetrics(prev => ({
         ...prev,
         isPersonDetected: false,
         isExercising: false,
-        formQuality: 0
+        formQuality: 0,
+        detectionQuality: quality.detectionQuality,
+        trackingStatus: quality.trackingStatus
       }));
       setFeedback([{
         type: 'warning',
-        message: 'No person detected in frame',
+        message: getTrackingMessage(quality.trackingStatus),
         icon: '👤'
       }]);
       return;
     }
 
-    // Person detected
+    // Only perform exercise analysis if detection quality is good or better
     let analysis = null;
-    switch (exercise) {
-      case 'squat':
-        analysis = analyzeSquat(results.poseLandmarks);
-        break;
-      case 'pushup':
-        analysis = analyzePushUp(results.poseLandmarks);
-        break;
-      case 'plank':
-        analysis = analyzePlank(results.poseLandmarks);
-        break;
+    if (quality.detectionQuality === 'good' || quality.detectionQuality === 'excellent') {
+      switch (exercise) {
+        case 'squat':
+          analysis = analyzeSquat(results.poseLandmarks);
+          break;
+        case 'pushup':
+          analysis = analyzePushUp(results.poseLandmarks);
+          break;
+        case 'plank':
+          analysis = analyzePlank(results.poseLandmarks);
+          break;
+      }
     }
 
     if (analysis) {
@@ -539,10 +640,19 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         isPersonDetected: true,
         isExercising: analysis.isExercising,
         formQuality: analysis.formQuality,
-        reps: analysis.reps
+        reps: analysis.reps,
+        detectionQuality: quality.detectionQuality,
+        trackingStatus: quality.trackingStatus
       }));
       
-      if (analysis.feedback.length > 0) {
+      // Prioritize tracking feedback if poor quality
+      if (quality.detectionQuality === 'poor' || quality.trackingStatus !== 'optimal') {
+        setFeedback([{
+          type: 'warning',
+          message: getTrackingMessage(quality.trackingStatus),
+          icon: '⚠️'
+        }]);
+      } else if (analysis.feedback.length > 0) {
         setFeedback(analysis.feedback);
       } else if (!analysis.isExercising) {
         setFeedback([{
@@ -551,8 +661,24 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
           icon: '💪'
         }]);
       }
+    } else {
+      // Poor detection quality - pause analysis
+      setMetrics(prev => ({
+        ...prev,
+        isPersonDetected: true,
+        isExercising: false,
+        formQuality: 0,
+        detectionQuality: quality.detectionQuality,
+        trackingStatus: quality.trackingStatus
+      }));
+      
+      setFeedback([{
+        type: 'warning',
+        message: getTrackingMessage(quality.trackingStatus),
+        icon: '⚠️'
+      }]);
     }
-  }, [exercise, analyzeSquat, analyzePushUp, analyzePlank]);
+  }, [exercise, analyzeSquat, analyzePushUp, analyzePlank, assessPoseQuality, getTrackingMessage]);
 
   // Create a callback function to process pose results
   const processPoseResultsCallback = useCallback((results: Results) => {
@@ -573,7 +699,9 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         reps: 0,
         sessionTime: '00:00',
         isPersonDetected: false,
-        isExercising: false
+        isExercising: false,
+        detectionQuality: 'poor',
+        trackingStatus: 'lost'
       });
       setFeedback([]);
     }

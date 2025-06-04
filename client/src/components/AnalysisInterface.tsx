@@ -43,7 +43,13 @@ export default function AnalysisInterface({
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
           <div className="relative">
-            <CameraView isActive={isActive} onVideoReady={handleVideoReady} onPoseResults={handlePoseResults} />
+            <CameraView 
+              isActive={isActive} 
+              onVideoReady={handleVideoReady} 
+              onPoseResults={handlePoseResults}
+              trackingStatus={metrics.trackingStatus}
+              detectionQuality={metrics.detectionQuality}
+            />
             
             {/* Rep Flash Indicator */}
             {repFlash && (

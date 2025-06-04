@@ -107,7 +107,7 @@ export default function AnalysisInterface({
 
           {/* Exercise Metrics */}
           <div className="space-y-6">
-            {metrics.isPersonDetected && metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') && (
+            {metrics.isPersonDetected && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') && (
               <>
                 <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
                   <div className="flex justify-between items-center mb-3">

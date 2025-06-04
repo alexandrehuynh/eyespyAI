@@ -232,8 +232,8 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       });
     }
 
-    // Only consider exercising if in a clear squat position
-    const isExercising = currentState === 'down' || (avgKneeAngle < 140 && hipHeight > 0.5);
+    // Consider exercising if in squat position or recently performed a squat
+    const isExercising = currentState !== 'neutral' || (avgKneeAngle < 150 && hipHeight > 0.4);
 
     return {
       formQuality: Math.max(formScore, 0),
@@ -394,8 +394,8 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       }
     }
 
-    // Only consider exercising if in push-up position and moving
-    const isExercising = isInPushUpPosition && (currentState === 'down' || avgElbowAngle < 160);
+    // Consider exercising if in push-up position regardless of current movement phase
+    const isExercising = isInPushUpPosition;
 
     return {
       formQuality: Math.max(formScore, 0),

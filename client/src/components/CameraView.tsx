@@ -16,13 +16,23 @@ interface CameraViewProps {
   detectionQuality?: 'poor' | 'good' | 'excellent';
   isPersonDetected?: boolean;
   feedback?: FeedbackItem[];
+  isPortraitMode?: boolean;
 }
 
-export default function CameraView({ isActive, onVideoReady, onPoseResults, trackingStatus = 'lost', detectionQuality = 'poor', isPersonDetected = false, feedback = [] }: CameraViewProps) {
+export default function CameraView({ isActive, onVideoReady, onPoseResults, trackingStatus = 'lost', detectionQuality = 'poor', isPersonDetected = false, feedback = [], isPortraitMode = true }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [permissionState, setPermissionState] = useState<'pending' | 'granted' | 'denied'>('pending');
+
+  // Get aspect ratio and size constraints based on orientation
+  const getCameraClasses = () => {
+    if (isPortraitMode) {
+      return 'aspect-[3/4] max-h-[500px] w-full max-w-[375px] mx-auto';
+    } else {
+      return 'aspect-video';
+    }
+  };
 
   useEffect(() => {
     if (!isActive) {
@@ -57,7 +67,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
       } catch (err) {
         console.error('Error accessing camera:', err);
         setPermissionState('denied');
-        
+
         if (err instanceof Error) {
           if (err.name === 'NotAllowedError') {
             setError('Camera access denied. Please allow camera permissions and refresh the page.');
@@ -88,14 +98,14 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
-      
+
       // Notify parent when video is ready
       const handleLoadedData = () => {
         if (videoRef.current && onVideoReady) {
           onVideoReady(videoRef.current);
         }
       };
-      
+
       videoRef.current.addEventListener('loadeddata', handleLoadedData);
       return () => {
         if (videoRef.current) {
@@ -107,7 +117,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
 
   if (!isActive) {
     return (
-      <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-slate-700/50">
+      <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border border-slate-700/50`}>
         <div className="absolute inset-0 flex items-center justify-center text-slate-400">
           <div className="text-center">
             <div className="text-6xl mb-4">📹</div>
@@ -120,7 +130,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
 
   if (error) {
     return (
-      <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-red-500/50">
+      <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border border-red-500/50`}>
         <div className="absolute inset-0 flex items-center justify-center text-red-400">
           <div className="text-center p-6">
             <div className="text-6xl mb-4">⚠️</div>
@@ -134,7 +144,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
 
   if (permissionState === 'pending') {
     return (
-      <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-blue-500/50">
+      <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border border-blue-500/50`}>
         <div className="absolute inset-0 flex items-center justify-center text-blue-400">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-pulse">📹</div>
@@ -179,7 +189,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
   };
 
   return (
-    <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border-2 transition-colors duration-300 ${getBorderColor()}`}>
+    <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border-2 transition-colors duration-300 ${getBorderColor()}`}>
       <video
         ref={videoRef}
         autoPlay
@@ -187,14 +197,14 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
         muted
         className="w-full h-full object-cover"
       />
-      
+
       {/* Pose Overlay */}
       <PoseOverlay
         videoElement={videoRef.current}
         isActive={isActive}
         onPoseResults={onPoseResults}
       />
-      
+
       {/* Top Status Bar */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20">
         {/* Detection Quality & Person Status */}
@@ -209,7 +219,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
                detectionQuality === 'good' ? 'GOOD' : 'POOR'}
             </span>
           </div>
-          
+
           {/* Person Detection Status */}
           <div className={`flex items-center space-x-2 backdrop-blur-sm px-3 py-2 rounded-lg ${
             isPersonDetected ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-400'

@@ -131,9 +131,10 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults }: P
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas size to match video
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
+      // Set canvas size to match displayed video container
+      const videoRect = videoElement.getBoundingClientRect();
+      canvas.width = videoRect.width;
+      canvas.height = videoRect.height;
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);

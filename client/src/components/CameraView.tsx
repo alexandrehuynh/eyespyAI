@@ -2,9 +2,10 @@ import { useState, useEffect, useRef } from "react";
 
 interface CameraViewProps {
   isActive: boolean;
+  onVideoReady?: (video: HTMLVideoElement) => void;
 }
 
-export default function CameraView({ isActive }: CameraViewProps) {
+export default function CameraView({ isActive, onVideoReady }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,8 +75,22 @@ export default function CameraView({ isActive }: CameraViewProps) {
   useEffect(() => {
     if (videoRef.current && stream) {
       videoRef.current.srcObject = stream;
+      
+      // Notify parent when video is ready
+      const handleLoadedData = () => {
+        if (videoRef.current && onVideoReady) {
+          onVideoReady(videoRef.current);
+        }
+      };
+      
+      videoRef.current.addEventListener('loadeddata', handleLoadedData);
+      return () => {
+        if (videoRef.current) {
+          videoRef.current.removeEventListener('loadeddata', handleLoadedData);
+        }
+      };
     }
-  }, [stream]);
+  }, [stream, onVideoReady]);
 
   if (!isActive) {
     return (

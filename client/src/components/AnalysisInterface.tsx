@@ -1,6 +1,7 @@
-import { useState, useEffect } from "react";
+import { useState, useCallback } from "react";
 import { Exercise } from "@/pages/home";
 import CameraView from "@/components/CameraView";
+import { usePoseDetection } from "@/hooks/usePoseDetection";
 
 interface AnalysisInterfaceProps {
   selectedExercise: Exercise;
@@ -14,83 +15,18 @@ const exercises = {
   plank: { name: 'Plank', emoji: '🧘' }
 };
 
-interface Metrics {
-  formQuality: number;
-  reps: number;
-  sessionTime: string;
-}
-
-interface FeedbackItem {
-  type: 'success' | 'warning' | 'error';
-  message: string;
-  icon: string;
-}
-
 export default function AnalysisInterface({ 
   selectedExercise, 
   isActive, 
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
-  const [metrics, setMetrics] = useState<Metrics>({
-    formQuality: 92,
-    reps: 0,
-    sessionTime: '00:00'
-  });
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  
+  const { metrics, feedback } = usePoseDetection(videoElement, selectedExercise, isActive);
 
-  const [feedback, setFeedback] = useState<FeedbackItem[]>([
-    { type: 'success', message: 'Good knee alignment', icon: '✅' },
-    { type: 'warning', message: 'Squat deeper for full range', icon: '⚠️' },
-    { type: 'success', message: 'Excellent back posture', icon: '✅' }
-  ]);
-
-  const [sessionSeconds, setSessionSeconds] = useState(0);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    const timer = setInterval(() => {
-      setSessionSeconds(prev => prev + 1);
-    }, 1000);
-
-    return () => clearInterval(timer);
-  }, [isActive]);
-
-  useEffect(() => {
-    const minutes = Math.floor(sessionSeconds / 60);
-    const seconds = sessionSeconds % 60;
-    setMetrics(prev => ({
-      ...prev,
-      sessionTime: `${minutes.toString().padStart(2, '0')}:${seconds.toString().padStart(2, '0')}`
-    }));
-  }, [sessionSeconds]);
-
-  useEffect(() => {
-    if (!isActive) return;
-
-    const metricsInterval = setInterval(() => {
-      setMetrics(prev => ({
-        ...prev,
-        formQuality: Math.floor(Math.random() * 20) + 80, // 80-100%
-        reps: prev.reps + (Math.random() > 0.7 ? 1 : 0) // Occasionally increment reps
-      }));
-
-      // Update feedback occasionally
-      if (Math.random() > 0.8) {
-        const feedbackOptions = [
-          { type: 'success' as const, message: 'Perfect form detected', icon: '✅' },
-          { type: 'warning' as const, message: 'Maintain steady pace', icon: '⚠️' },
-          { type: 'success' as const, message: 'Great core engagement', icon: '✅' },
-          { type: 'warning' as const, message: 'Keep shoulders aligned', icon: '⚠️' },
-          { type: 'success' as const, message: 'Optimal range of motion', icon: '✅' }
-        ];
-        
-        const randomFeedback = feedbackOptions[Math.floor(Math.random() * feedbackOptions.length)];
-        setFeedback(prev => [randomFeedback, ...prev.slice(0, 2)]);
-      }
-    }, 2000);
-
-    return () => clearInterval(metricsInterval);
-  }, [isActive]);
+  const handleVideoReady = useCallback((video: HTMLVideoElement) => {
+    setVideoElement(video);
+  }, []);
 
   const exercise = exercises[selectedExercise];
 
@@ -101,7 +37,7 @@ export default function AnalysisInterface({
         {/* Camera Feed Section */}
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
-          <CameraView isActive={isActive} />
+          <CameraView isActive={isActive} onVideoReady={handleVideoReady} />
         </div>
 
         {/* Real-time Feedback Section */}
@@ -119,34 +55,64 @@ export default function AnalysisInterface({
             </div>
           </div>
 
-          {/* Form Metrics */}
+          {/* Status Indicators */}
           <div className="space-y-4">
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Form Quality</span>
-                <span className="text-green-500 font-semibold">{metrics.formQuality}%</span>
-              </div>
-              <div className="w-full bg-slate-700 rounded-full h-2">
-                <div 
-                  className="bg-green-500 h-2 rounded-full transition-all duration-300" 
-                  style={{ width: `${metrics.formQuality}%` }}
-                ></div>
+                <span className="text-slate-300">Person Detected</span>
+                <span className={`font-semibold ${metrics.isPersonDetected ? 'text-green-500' : 'text-red-400'}`}>
+                  {metrics.isPersonDetected ? '✅ Yes' : '❌ No'}
+                </span>
               </div>
             </div>
 
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Repetitions</span>
-                <span className="text-white font-semibold">{metrics.reps}</span>
+                <span className="text-slate-300">Exercising</span>
+                <span className={`font-semibold ${metrics.isExercising ? 'text-green-500' : 'text-yellow-400'}`}>
+                  {metrics.isExercising ? '✅ Active' : '⏸️ Standby'}
+                </span>
               </div>
             </div>
 
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Session Time</span>
-                <span className="text-white font-semibold">{metrics.sessionTime}</span>
-              </div>
-            </div>
+            {metrics.isPersonDetected && metrics.isExercising && (
+              <>
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-300">Form Quality</span>
+                    <span className={`font-semibold ${
+                      metrics.formQuality >= 80 ? 'text-green-500' : 
+                      metrics.formQuality >= 60 ? 'text-yellow-400' : 'text-red-400'
+                    }`}>{metrics.formQuality}%</span>
+                  </div>
+                  <div className="w-full bg-slate-700 rounded-full h-2">
+                    <div 
+                      className={`h-2 rounded-full transition-all duration-300 ${
+                        metrics.formQuality >= 80 ? 'bg-green-500' : 
+                        metrics.formQuality >= 60 ? 'bg-yellow-400' : 'bg-red-400'
+                      }`}
+                      style={{ width: `${metrics.formQuality}%` }}
+                    ></div>
+                  </div>
+                </div>
+
+                {selectedExercise !== 'plank' && (
+                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                    <div className="flex justify-between items-center mb-2">
+                      <span className="text-slate-300">Repetitions</span>
+                      <span className="text-white font-semibold">{metrics.reps}</span>
+                    </div>
+                  </div>
+                )}
+
+                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+                  <div className="flex justify-between items-center mb-2">
+                    <span className="text-slate-300">Session Time</span>
+                    <span className="text-white font-semibold">{metrics.sessionTime}</span>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
 
           {/* Real-time Feedback */}

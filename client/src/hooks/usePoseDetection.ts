@@ -8,6 +8,8 @@ export interface PoseMetrics {
   sessionTime: string;
   isPersonDetected: boolean;
   isExercising: boolean;
+  detectionQuality: 'poor' | 'good' | 'excellent';
+  trackingStatus: 'optimal' | 'too_close' | 'partial' | 'lost' | 'repositioning';
 }
 
 export interface PoseFeedback {

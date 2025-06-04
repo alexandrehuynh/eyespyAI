@@ -49,6 +49,8 @@ export default function AnalysisInterface({
               onPoseResults={handlePoseResults}
               trackingStatus={metrics.trackingStatus}
               detectionQuality={metrics.detectionQuality}
+              isPersonDetected={metrics.isPersonDetected}
+              feedback={feedback}
             />
             
             {/* Rep Flash Indicator */}
@@ -77,56 +79,21 @@ export default function AnalysisInterface({
             </div>
           </div>
 
-          {/* Status Indicators */}
-          <div className="space-y-4">
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Detection Quality</span>
-                <span className={`font-semibold ${
-                  metrics.detectionQuality === 'excellent' ? 'text-green-500' : 
-                  metrics.detectionQuality === 'good' ? 'text-yellow-400' : 'text-red-400'
-                }`}>
-                  {metrics.detectionQuality === 'excellent' ? '🎯 Excellent' : 
-                   metrics.detectionQuality === 'good' ? '✅ Good' : '⚠️ Poor'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Person Detected</span>
-                <span className={`font-semibold ${metrics.isPersonDetected ? 'text-green-500' : 'text-red-400'}`}>
-                  {metrics.isPersonDetected ? '✅ Yes' : '❌ No'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Analysis Status</span>
-                <span className={`font-semibold ${
-                  metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') 
-                    ? 'text-green-500' : 'text-yellow-400'
-                }`}>
-                  {metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') 
-                    ? '✅ Active' : '⏸️ Paused'}
-                </span>
-              </div>
-            </div>
-
-            {metrics.isPersonDetected && metrics.isExercising && (
+          {/* Exercise Metrics */}
+          <div className="space-y-6">
+            {metrics.isPersonDetected && metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') && (
               <>
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-slate-300">Form Quality</span>
-                    <span className={`font-semibold ${
+                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-slate-300 text-lg">Form Quality</span>
+                    <span className={`font-bold text-xl ${
                       metrics.formQuality >= 80 ? 'text-green-500' : 
                       metrics.formQuality >= 60 ? 'text-yellow-400' : 'text-red-400'
                     }`}>{metrics.formQuality}%</span>
                   </div>
-                  <div className="w-full bg-slate-700 rounded-full h-2">
+                  <div className="w-full bg-slate-700 rounded-full h-3">
                     <div 
-                      className={`h-2 rounded-full transition-all duration-300 ${
+                      className={`h-3 rounded-full transition-all duration-300 ${
                         metrics.formQuality >= 80 ? 'bg-green-500' : 
                         metrics.formQuality >= 60 ? 'bg-yellow-400' : 'bg-red-400'
                       }`}
@@ -136,41 +103,22 @@ export default function AnalysisInterface({
                 </div>
 
                 {selectedExercise !== 'plank' && (
-                  <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-                    <div className="flex justify-between items-center mb-2">
-                      <span className="text-slate-300">Repetitions</span>
-                      <span className="text-white font-semibold">{metrics.reps}</span>
+                  <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300 text-lg">Repetitions</span>
+                      <span className="text-white font-bold text-2xl">{metrics.reps}</span>
                     </div>
                   </div>
                 )}
 
-                <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-                  <div className="flex justify-between items-center mb-2">
-                    <span className="text-slate-300">Session Time</span>
-                    <span className="text-white font-semibold">{metrics.sessionTime}</span>
+                <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                  <div className="flex justify-between items-center">
+                    <span className="text-slate-300 text-lg">Session Time</span>
+                    <span className="text-white font-bold text-2xl">{metrics.sessionTime}</span>
                   </div>
                 </div>
               </>
             )}
-          </div>
-
-          {/* Real-time Feedback */}
-          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-            <h5 className="text-lg font-semibold text-white mb-3">Live Feedback</h5>
-            <div className="space-y-2">
-              {feedback.map((item, index) => (
-                <div 
-                  key={index}
-                  className={`flex items-center space-x-2 ${
-                    item.type === 'success' ? 'text-green-500' : 
-                    item.type === 'warning' ? 'text-yellow-400' : 'text-red-400'
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span className="text-sm">{item.message}</span>
-                </div>
-              ))}
-            </div>
           </div>
 
           {/* Stop Analysis Button */}

@@ -2,15 +2,23 @@ import { useState, useEffect, useRef } from "react";
 import PoseOverlay from "@/components/PoseOverlay";
 import { Results } from "@mediapipe/pose";
 
+interface FeedbackItem {
+  type: 'success' | 'warning' | 'error';
+  message: string;
+  icon: string;
+}
+
 interface CameraViewProps {
   isActive: boolean;
   onVideoReady?: (video: HTMLVideoElement) => void;
   onPoseResults?: (results: Results) => void;
   trackingStatus?: 'optimal' | 'too_close' | 'partial' | 'lost' | 'repositioning';
   detectionQuality?: 'poor' | 'good' | 'excellent';
+  isPersonDetected?: boolean;
+  feedback?: FeedbackItem[];
 }
 
-export default function CameraView({ isActive, onVideoReady, onPoseResults, trackingStatus = 'lost', detectionQuality = 'poor' }: CameraViewProps) {
+export default function CameraView({ isActive, onVideoReady, onPoseResults, trackingStatus = 'lost', detectionQuality = 'poor', isPersonDetected = false, feedback = [] }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -187,23 +195,61 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
         onPoseResults={onPoseResults}
       />
       
-      {/* Detection Quality Indicator */}
-      <div className={`absolute top-4 left-4 flex items-center space-x-2 backdrop-blur-sm px-3 py-2 rounded-lg z-20 ${getQualityColor()}`}>
-        <div className={`w-3 h-3 rounded-full ${trackingStatus === 'optimal' ? 'animate-pulse' : ''} ${
-          detectionQuality === 'excellent' ? 'bg-green-500' :
-          detectionQuality === 'good' ? 'bg-yellow-400' : 'bg-red-400'
-        }`}></div>
-        <span className="text-sm font-medium">
-          {detectionQuality === 'excellent' ? 'EXCELLENT' :
-           detectionQuality === 'good' ? 'GOOD' : 'POOR'} TRACKING
-        </span>
+      {/* Top Status Bar */}
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-start z-20">
+        {/* Detection Quality & Person Status */}
+        <div className="flex flex-col space-y-2">
+          <div className={`flex items-center space-x-2 backdrop-blur-sm px-3 py-2 rounded-lg ${getQualityColor()}`}>
+            <div className={`w-3 h-3 rounded-full ${trackingStatus === 'optimal' ? 'animate-pulse' : ''} ${
+              detectionQuality === 'excellent' ? 'bg-green-500' :
+              detectionQuality === 'good' ? 'bg-yellow-400' : 'bg-red-400'
+            }`}></div>
+            <span className="text-sm font-medium">
+              {detectionQuality === 'excellent' ? 'EXCELLENT' :
+               detectionQuality === 'good' ? 'GOOD' : 'POOR'}
+            </span>
+          </div>
+          
+          {/* Person Detection Status */}
+          <div className={`flex items-center space-x-2 backdrop-blur-sm px-3 py-2 rounded-lg ${
+            isPersonDetected ? 'bg-green-500/20 text-green-500' : 'bg-red-500/20 text-red-400'
+          }`}>
+            <span className="text-xs font-medium">
+              {isPersonDetected ? '👤 DETECTED' : '👤 NO PERSON'}
+            </span>
+          </div>
+        </div>
+
+        {/* Recording Indicator */}
+        <div className="bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg">
+          <div className="flex items-center space-x-2">
+            <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
+            <span className="text-sm font-medium text-white">REC</span>
+          </div>
+        </div>
       </div>
 
-      {/* Recording Indicator */}
-      <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg z-20">
-        <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-        <span className="text-sm font-medium">RECORDING</span>
-      </div>
+      {/* Live Feedback Overlay */}
+      {feedback.length > 0 && isPersonDetected && (
+        <div className="absolute bottom-4 left-4 right-4 z-20">
+          <div className="bg-black/80 backdrop-blur-sm rounded-lg p-4 max-h-32 overflow-y-auto">
+            <div className="space-y-2">
+              {feedback.slice(0, 3).map((item, index) => (
+                <div 
+                  key={index}
+                  className={`flex items-center space-x-2 text-sm ${
+                    item.type === 'success' ? 'text-green-400' : 
+                    item.type === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                  }`}
+                >
+                  <span>{item.icon}</span>
+                  <span>{item.message}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Tracking Status Message */}
       {trackingStatus !== 'optimal' && (

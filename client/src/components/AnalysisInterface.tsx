@@ -50,7 +50,6 @@ export default function AnalysisInterface({
               trackingStatus={metrics.trackingStatus}
               detectionQuality={metrics.detectionQuality}
               isPersonDetected={metrics.isPersonDetected}
-              feedback={feedback}
             />
             
             {/* Rep Flash Indicator */}
@@ -61,6 +60,33 @@ export default function AnalysisInterface({
                 </div>
               </div>
             )}
+          </div>
+          
+          {/* Live Feedback Area */}
+          <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 min-h-[120px]">
+            <h5 className="text-lg font-semibold text-white mb-3">Live Feedback</h5>
+            <div className="space-y-2">
+              {feedback.length > 0 ? (
+                feedback.slice(0, 4).map((item, index) => (
+                  <div 
+                    key={index}
+                    className={`flex items-center space-x-2 ${
+                      item.type === 'success' ? 'text-green-500' : 
+                      item.type === 'warning' ? 'text-yellow-400' : 'text-red-400'
+                    }`}
+                  >
+                    <span>{item.icon}</span>
+                    <span className="text-sm">{item.message}</span>
+                  </div>
+                ))
+              ) : (
+                <div className="text-slate-400 text-sm">
+                  {metrics.isPersonDetected ? 
+                    `Get into ${selectedExercise} position to start analysis` : 
+                    'Position yourself in front of the camera'}
+                </div>
+              )}
+            </div>
           </div>
         </div>
 

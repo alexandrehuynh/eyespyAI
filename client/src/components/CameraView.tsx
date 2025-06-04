@@ -229,27 +229,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
         </div>
       </div>
 
-      {/* Live Feedback Overlay */}
-      {feedback.length > 0 && isPersonDetected && (
-        <div className="absolute bottom-4 left-4 right-4 z-20">
-          <div className="bg-black/80 backdrop-blur-sm rounded-lg p-4 max-h-32 overflow-y-auto">
-            <div className="space-y-2">
-              {feedback.slice(0, 3).map((item, index) => (
-                <div 
-                  key={index}
-                  className={`flex items-center space-x-2 text-sm ${
-                    item.type === 'success' ? 'text-green-400' : 
-                    item.type === 'warning' ? 'text-yellow-400' : 'text-red-400'
-                  }`}
-                >
-                  <span>{item.icon}</span>
-                  <span>{item.message}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </div>
-      )}
+
 
       {/* Tracking Status Message */}
       {trackingStatus !== 'optimal' && (

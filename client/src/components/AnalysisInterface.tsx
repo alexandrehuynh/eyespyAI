@@ -21,9 +21,14 @@ export default function AnalysisInterface({
   isActive, 
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
-  const [isPortraitMode, setIsPortraitMode] = useState(false); // Default to landscape
-
+  const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [isPortraitMode, setIsPortraitMode] = useState(true);
+  
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
+
+  const handleVideoReady = useCallback((video: HTMLVideoElement) => {
+    setVideoElement(video);
+  }, []);
 
   const handlePoseResults = useCallback((results: Results) => {
     processPoseResultsCallback(results);
@@ -33,8 +38,8 @@ export default function AnalysisInterface({
 
   return (
     <div className="max-w-6xl mx-auto mt-16">
-      <div className="grid gap-12 grid-cols-1 lg:grid-cols-2">
-
+      <div className={`grid gap-12 ${isPortraitMode ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+        
         {/* Camera Feed Section */}
         <div className="space-y-6">
           <div className="flex justify-between items-center mb-6">
@@ -49,13 +54,13 @@ export default function AnalysisInterface({
           <div className="relative">
             <CameraView 
               isActive={isActive} 
+              onVideoReady={handleVideoReady} 
               onPoseResults={handlePoseResults}
               trackingStatus={metrics.trackingStatus}
               detectionQuality={metrics.detectionQuality}
               isPersonDetected={metrics.isPersonDetected}
-              isPortraitMode={isPortraitMode}
             />
-
+            
             {/* Rep Flash Indicator */}
             {repFlash && (
               <div className="absolute inset-0 flex items-center justify-center pointer-events-none z-30">
@@ -65,7 +70,7 @@ export default function AnalysisInterface({
               </div>
             )}
           </div>
-
+          
           {/* Live Feedback Area */}
           <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50 min-h-[120px]">
             <h5 className="text-lg font-semibold text-white mb-3">Live Feedback</h5>
@@ -97,7 +102,7 @@ export default function AnalysisInterface({
         {/* Real-time Feedback Section */}
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">AI Form Analysis</h3>
-
+          
           {/* Current Exercise Display */}
           <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
             <div className="flex items-center space-x-4 mb-4">

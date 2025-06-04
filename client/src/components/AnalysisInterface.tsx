@@ -1,5 +1,6 @@
 import { useState, useEffect } from "react";
 import { Exercise } from "@/pages/home";
+import CameraView from "@/components/CameraView";
 
 interface AnalysisInterfaceProps {
   selectedExercise: Exercise;
@@ -100,21 +101,7 @@ export default function AnalysisInterface({
         {/* Camera Feed Section */}
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
-          <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-slate-700/50">
-            <div className="absolute inset-0 flex items-center justify-center text-slate-400">
-              <div className="text-center">
-                <div className="text-6xl mb-4">📹</div>
-                <p className="text-lg">Camera feed will appear here</p>
-                <p className="text-sm mt-2">AI pose estimation overlays active</p>
-              </div>
-            </div>
-            
-            {/* Recording Indicator */}
-            <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg">
-              <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
-              <span className="text-sm font-medium">RECORDING</span>
-            </div>
-          </div>
+          <CameraView isActive={isActive} />
         </div>
 
         {/* Real-time Feedback Section */}

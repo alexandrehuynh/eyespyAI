@@ -21,7 +21,7 @@ export default function AnalysisInterface({
   isActive, 
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
-  const [isPortraitMode, setIsPortraitMode] = useState(true); // Default to portrait
+  const [isPortraitMode, setIsPortraitMode] = useState(false); // Default to landscape
 
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
 

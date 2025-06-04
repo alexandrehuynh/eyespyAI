@@ -22,6 +22,7 @@ export default function AnalysisInterface({
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [isPortraitMode, setIsPortraitMode] = useState(true);
   
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
 
@@ -37,11 +38,19 @@ export default function AnalysisInterface({
 
   return (
     <div className="max-w-6xl mx-auto mt-16">
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
+      <div className={`grid gap-12 ${isPortraitMode ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
         
         {/* Camera Feed Section */}
         <div className="space-y-6">
-          <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-2xl font-bold text-white">Live Camera Feed</h3>
+            <button
+              onClick={() => setIsPortraitMode(!isPortraitMode)}
+              className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
+            >
+              {isPortraitMode ? '📱 Portrait' : '💻 Landscape'}
+            </button>
+          </div>
           <div className="relative">
             <CameraView 
               isActive={isActive} 

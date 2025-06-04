@@ -81,6 +81,19 @@ export default function AnalysisInterface({
           <div className="space-y-4">
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
+                <span className="text-slate-300">Detection Quality</span>
+                <span className={`font-semibold ${
+                  metrics.detectionQuality === 'excellent' ? 'text-green-500' : 
+                  metrics.detectionQuality === 'good' ? 'text-yellow-400' : 'text-red-400'
+                }`}>
+                  {metrics.detectionQuality === 'excellent' ? '🎯 Excellent' : 
+                   metrics.detectionQuality === 'good' ? '✅ Good' : '⚠️ Poor'}
+                </span>
+              </div>
+            </div>
+
+            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
+              <div className="flex justify-between items-center mb-2">
                 <span className="text-slate-300">Person Detected</span>
                 <span className={`font-semibold ${metrics.isPersonDetected ? 'text-green-500' : 'text-red-400'}`}>
                   {metrics.isPersonDetected ? '✅ Yes' : '❌ No'}
@@ -90,9 +103,13 @@ export default function AnalysisInterface({
 
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Exercising</span>
-                <span className={`font-semibold ${metrics.isExercising ? 'text-green-500' : 'text-yellow-400'}`}>
-                  {metrics.isExercising ? '✅ Active' : '⏸️ Standby'}
+                <span className="text-slate-300">Analysis Status</span>
+                <span className={`font-semibold ${
+                  metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') 
+                    ? 'text-green-500' : 'text-yellow-400'
+                }`}>
+                  {metrics.isExercising && (metrics.detectionQuality === 'good' || metrics.detectionQuality === 'excellent') 
+                    ? '✅ Active' : '⏸️ Paused'}
                 </span>
               </div>
             </div>

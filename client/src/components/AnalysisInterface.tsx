@@ -43,13 +43,7 @@ export default function AnalysisInterface({
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
           <div className="relative">
-            <CameraView 
-              isActive={isActive} 
-              onVideoReady={handleVideoReady} 
-              onPoseResults={handlePoseResults}
-              detectionQuality={metrics.detectionQuality}
-              trackingStatus={metrics.trackingStatus}
-            />
+            <CameraView isActive={isActive} onVideoReady={handleVideoReady} onPoseResults={handlePoseResults} />
             
             {/* Rep Flash Indicator */}
             {repFlash && (
@@ -81,33 +75,16 @@ export default function AnalysisInterface({
           <div className="space-y-4">
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Detection Quality</span>
-                <span className={`font-semibold ${
-                  metrics.detectionQuality === 'Excellent' ? 'text-green-500' : 
-                  metrics.detectionQuality === 'Good' ? 'text-yellow-400' : 'text-red-400'
-                }`}>
-                  {metrics.detectionQuality}
+                <span className="text-slate-300">Person Detected</span>
+                <span className={`font-semibold ${metrics.isPersonDetected ? 'text-green-500' : 'text-red-400'}`}>
+                  {metrics.isPersonDetected ? '✅ Yes' : '❌ No'}
                 </span>
               </div>
             </div>
 
             <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
               <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Tracking Status</span>
-                <span className={`font-semibold ${
-                  metrics.trackingStatus === 'optimal' ? 'text-green-500' : 
-                  metrics.trackingStatus === 'lost' ? 'text-red-400' : 'text-yellow-400'
-                }`}>
-                  {metrics.trackingStatus === 'optimal' ? '🎯 Optimal' :
-                   metrics.trackingStatus === 'too_close' ? '⬅️ Too Close' :
-                   metrics.trackingStatus === 'partial' ? '📐 Partial' : '🔄 Lost'}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-800/50 rounded-xl p-4 border border-slate-700/50">
-              <div className="flex justify-between items-center mb-2">
-                <span className="text-slate-300">Analysis Status</span>
+                <span className="text-slate-300">Exercising</span>
                 <span className={`font-semibold ${metrics.isExercising ? 'text-green-500' : 'text-yellow-400'}`}>
                   {metrics.isExercising ? '✅ Active' : '⏸️ Standby'}
                 </span>

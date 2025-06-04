@@ -1,11 +1,14 @@
 import { useState, useEffect, useRef } from "react";
+import PoseOverlay from "@/components/PoseOverlay";
+import { Results } from "@mediapipe/pose";
 
 interface CameraViewProps {
   isActive: boolean;
   onVideoReady?: (video: HTMLVideoElement) => void;
+  onPoseResults?: (results: Results) => void;
 }
 
-export default function CameraView({ isActive, onVideoReady }: CameraViewProps) {
+export default function CameraView({ isActive, onVideoReady, onPoseResults }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -143,14 +146,21 @@ export default function CameraView({ isActive, onVideoReady }: CameraViewProps) 
         className="w-full h-full object-cover"
       />
       
+      {/* Pose Overlay */}
+      <PoseOverlay
+        videoElement={videoRef.current}
+        isActive={isActive}
+        onPoseResults={onPoseResults}
+      />
+      
       {/* Recording Indicator */}
-      <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg">
+      <div className="absolute top-4 right-4 flex items-center space-x-2 bg-red-500/20 backdrop-blur-sm px-3 py-2 rounded-lg z-20">
         <div className="w-3 h-3 bg-red-500 rounded-full animate-pulse"></div>
         <span className="text-sm font-medium">RECORDING</span>
       </div>
 
       {/* AI Overlay Indicators */}
-      <div className="absolute top-4 left-4 flex items-center space-x-2 bg-blue-500/20 backdrop-blur-sm px-3 py-2 rounded-lg">
+      <div className="absolute top-4 left-4 flex items-center space-x-2 bg-blue-500/20 backdrop-blur-sm px-3 py-2 rounded-lg z-20">
         <div className="w-3 h-3 bg-blue-500 rounded-full animate-pulse"></div>
         <span className="text-sm font-medium">AI TRACKING</span>
       </div>

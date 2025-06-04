@@ -2,6 +2,7 @@ import { useState, useCallback } from "react";
 import { Exercise } from "@/pages/home";
 import CameraView from "@/components/CameraView";
 import { usePoseDetection } from "@/hooks/usePoseDetection";
+import { Results } from "@mediapipe/pose";
 
 interface AnalysisInterfaceProps {
   selectedExercise: Exercise;
@@ -28,6 +29,11 @@ export default function AnalysisInterface({
     setVideoElement(video);
   }, []);
 
+  const handlePoseResults = useCallback((results: Results) => {
+    // This is handled by the usePoseDetection hook
+    // The hook will process the results internally
+  }, []);
+
   const exercise = exercises[selectedExercise];
 
   return (
@@ -37,7 +43,7 @@ export default function AnalysisInterface({
         {/* Camera Feed Section */}
         <div className="space-y-6">
           <h3 className="text-2xl font-bold text-white mb-6">Live Camera Feed</h3>
-          <CameraView isActive={isActive} onVideoReady={handleVideoReady} />
+          <CameraView isActive={isActive} onVideoReady={handleVideoReady} onPoseResults={handlePoseResults} />
         </div>
 
         {/* Real-time Feedback Section */}

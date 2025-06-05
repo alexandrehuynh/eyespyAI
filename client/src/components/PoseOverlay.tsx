@@ -142,15 +142,34 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
 
       // Transform normalized coordinates to canvas coordinates
       const transformLandmark = (landmark: any) => {
+        let x = landmark.x;
+        let y = landmark.y;
+
+        if (isPortraitMode) {
+          // In portrait mode, video is 1280x720 (16:9) but displayed in 3:4 container
+          // CSS object-cover crops the video horizontally to fit 3:4 aspect ratio
+          const videoAspect = 16 / 9; // Source video aspect ratio
+          const containerAspect = 3 / 4; // Portrait container aspect ratio
+          
+          // Calculate the visible portion of the video width
+          const visibleWidthRatio = containerAspect / videoAspect; // ~0.421875
+          const cropOffset = (1 - visibleWidthRatio) / 2; // ~0.2890625
+          
+          // Transform x coordinate from full video to visible crop
+          x = (landmark.x - cropOffset) / visibleWidthRatio;
+          // Clamp to visible area
+          x = Math.max(0, Math.min(1, x));
+        }
+
         return {
-          x: landmark.x * canvas.width,
-          y: landmark.y * canvas.height,
+          x: x * canvas.width,
+          y: y * canvas.height,
           visibility: landmark.visibility
         };
       };
 
       // Draw connections
-      ctx.lineWidth = 3;
+      ctx.lineWidth = 5;
       ctx.lineCap = 'round';
       
       POSE_CONNECTIONS.forEach(connection => {
@@ -178,7 +197,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           ctx.arc(
             transformedLandmark.x,
             transformedLandmark.y,
-            4, // radius
+            6, // radius
             0,
             2 * Math.PI
           );
@@ -187,7 +206,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           // Add small white border for better visibility
           ctx.globalAlpha = 0.9;
           ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 2;
           ctx.stroke();
         }
       });

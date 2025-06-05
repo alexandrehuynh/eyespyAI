@@ -146,19 +146,29 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
         let y = landmark.y;
 
         if (isPortraitMode) {
-          // In portrait mode, video is 1280x720 (16:9) but displayed in 3:4 container
-          // CSS object-cover crops the video horizontally to fit 3:4 aspect ratio
-          const videoAspect = 16 / 9; // Source video aspect ratio
-          const containerAspect = 3 / 4; // Portrait container aspect ratio
+          // Portrait mode: 16:9 video (1.777...) displayed in 3:4 container (0.75)
+          // Since 16:9 > 3:4, the video is cropped horizontally (left and right sides cut off)
+          const videoAspectRatio = 16 / 9; // ~1.777
+          const containerAspectRatio = 3 / 4; // 0.75
           
-          // Calculate the visible portion of the video width
-          const visibleWidthRatio = containerAspect / videoAspect; // ~0.421875
-          const cropOffset = (1 - visibleWidthRatio) / 2; // ~0.2890625
+          // Calculate what fraction of the video width is visible
+          const visibleWidthFraction = containerAspectRatio / videoAspectRatio; // ~0.4219
           
-          // Transform x coordinate from full video to visible crop
-          x = (landmark.x - cropOffset) / visibleWidthRatio;
-          // Clamp to visible area
-          x = Math.max(0, Math.min(1, x));
+          // Calculate how much is cropped from each side
+          const cropFromEachSide = (1 - visibleWidthFraction) / 2; // ~0.2891
+          
+          // Transform x-coordinate: map from full video (0-1) to visible portion
+          // If landmark.x is in the visible range (cropFromEachSide to 1-cropFromEachSide)
+          if (landmark.x >= cropFromEachSide && landmark.x <= (1 - cropFromEachSide)) {
+            // Remap to 0-1 range for the visible portion
+            x = (landmark.x - cropFromEachSide) / visibleWidthFraction;
+          } else {
+            // Landmark is in cropped area - clamp to edges
+            x = landmark.x < cropFromEachSide ? 0 : 1;
+          }
+          
+          // Y coordinate doesn't change since height is preserved
+          // y remains as landmark.y
         }
 
         return {
@@ -169,7 +179,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       };
 
       // Draw connections
-      ctx.lineWidth = 5;
+      ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       
       POSE_CONNECTIONS.forEach(connection => {
@@ -197,7 +207,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           ctx.arc(
             transformedLandmark.x,
             transformedLandmark.y,
-            6, // radius
+            4, // radius
             0,
             2 * Math.PI
           );
@@ -206,7 +216,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           // Add small white border for better visibility
           ctx.globalAlpha = 0.9;
           ctx.strokeStyle = '#FFFFFF';
-          ctx.lineWidth = 2;
+          ctx.lineWidth = 1;
           ctx.stroke();
         }
       });

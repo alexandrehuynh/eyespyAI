@@ -132,38 +132,19 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas size to match video
-      canvas.width = videoElement.videoWidth;
-      canvas.height = videoElement.videoHeight;
+      // Set canvas size to match displayed video dimensions
+      const rect = videoElement.getBoundingClientRect();
+      canvas.width = rect.width;
+      canvas.height = rect.height;
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Calculate coordinate transformation for portrait mode
+      // Transform normalized coordinates to canvas coordinates
       const transformLandmark = (landmark: any) => {
-        let x = landmark.x;
-        let y = landmark.y;
-
-        if (isPortraitMode) {
-          // For portrait mode (3:4 aspect ratio), the video is cropped
-          // Video is 1280x720 (16:9) but displayed in 3:4 container
-          // Calculate the visible area within the video that fits 3:4
-          const videoAspect = 16 / 9; // 1280/720
-          const containerAspect = 3 / 4; // portrait
-          
-          if (videoAspect > containerAspect) {
-            // Video is wider, crop horizontally (center crop)
-            const visibleWidth = canvas.height * containerAspect;
-            const cropOffset = (canvas.width - visibleWidth) / 2;
-            x = (landmark.x * canvas.width - cropOffset) / visibleWidth;
-            // Clamp to visible area
-            x = Math.max(0, Math.min(1, x));
-          }
-        }
-
         return {
-          x: x * canvas.width,
-          y: y * canvas.height,
+          x: landmark.x * canvas.width,
+          y: landmark.y * canvas.height,
           visibility: landmark.visibility
         };
       };

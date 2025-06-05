@@ -38,7 +38,7 @@ export default function AnalysisInterface({
 
   return (
     <div className="max-w-6xl mx-auto mt-16">
-      <div className={`grid gap-12 ${isPortraitMode ? 'grid-cols-1' : 'grid-cols-1 lg:grid-cols-2'}`}>
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-12">
         
         {/* Camera Feed Section */}
         <div className="space-y-6">

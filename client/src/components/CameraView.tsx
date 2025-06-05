@@ -143,7 +143,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
 
   if (permissionState === 'pending') {
     return (
-      <div className="relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border border-blue-500/50">
+      <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border border-blue-500/50`}>
         <div className="absolute inset-0 flex items-center justify-center text-blue-400">
           <div className="text-center">
             <div className="text-6xl mb-4 animate-pulse">📹</div>
@@ -188,7 +188,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
   };
 
   return (
-    <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden aspect-video border-2 transition-colors duration-300 ${getBorderColor()}`}>
+    <div className={`relative bg-slate-800/50 rounded-2xl overflow-hidden ${getCameraClasses()} border-2 transition-colors duration-300 ${getBorderColor()}`}>
       <video
         ref={videoRef}
         autoPlay

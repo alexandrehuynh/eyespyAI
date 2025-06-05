@@ -5,6 +5,7 @@ interface PoseOverlayProps {
   videoElement: HTMLVideoElement | null;
   isActive: boolean;
   onPoseResults?: (results: Results) => void;
+  isPortraitMode?: boolean;
 }
 
 // MediaPipe pose connections
@@ -68,7 +69,7 @@ const getLandmarkColor = (index: number) => {
   return '#9C27B0'; // Purple for head/torso
 };
 
-export default function PoseOverlay({ videoElement, isActive, onPoseResults }: PoseOverlayProps) {
+export default function PoseOverlay({ videoElement, isActive, onPoseResults, isPortraitMode = true }: PoseOverlayProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const poseRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
@@ -138,34 +139,64 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults }: P
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
+      // Calculate coordinate transformation for portrait mode
+      const transformLandmark = (landmark: any) => {
+        let x = landmark.x;
+        let y = landmark.y;
+
+        if (isPortraitMode) {
+          // For portrait mode (3:4 aspect ratio), the video is cropped
+          // Video is 1280x720 (16:9) but displayed in 3:4 container
+          // Calculate the visible area within the video that fits 3:4
+          const videoAspect = 16 / 9; // 1280/720
+          const containerAspect = 3 / 4; // portrait
+          
+          if (videoAspect > containerAspect) {
+            // Video is wider, crop horizontally (center crop)
+            const visibleWidth = canvas.height * containerAspect;
+            const cropOffset = (canvas.width - visibleWidth) / 2;
+            x = (landmark.x * canvas.width - cropOffset) / visibleWidth;
+            // Clamp to visible area
+            x = Math.max(0, Math.min(1, x));
+          }
+        }
+
+        return {
+          x: x * canvas.width,
+          y: y * canvas.height,
+          visibility: landmark.visibility
+        };
+      };
+
       // Draw connections
       ctx.lineWidth = 3;
       ctx.lineCap = 'round';
       
       POSE_CONNECTIONS.forEach(connection => {
         const [startIdx, endIdx] = connection;
-        const start = results.poseLandmarks[startIdx];
-        const end = results.poseLandmarks[endIdx];
+        const start = transformLandmark(results.poseLandmarks[startIdx]);
+        const end = transformLandmark(results.poseLandmarks[endIdx]);
         
         if (start && end && (start.visibility || 0) > 0.5 && (end.visibility || 0) > 0.5) {
           ctx.globalAlpha = 0.8;
           ctx.strokeStyle = getConnectionColor(connection);
           ctx.beginPath();
-          ctx.moveTo(start.x * canvas.width, start.y * canvas.height);
-          ctx.lineTo(end.x * canvas.width, end.y * canvas.height);
+          ctx.moveTo(start.x, start.y);
+          ctx.lineTo(end.x, end.y);
           ctx.stroke();
         }
       });
 
       // Draw landmarks
       results.poseLandmarks.forEach((landmark, index) => {
-        if ((landmark.visibility || 0) > 0.5) {
+        const transformedLandmark = transformLandmark(landmark);
+        if ((transformedLandmark.visibility || 0) > 0.5) {
           ctx.globalAlpha = 0.9;
           ctx.fillStyle = getLandmarkColor(index);
           ctx.beginPath();
           ctx.arc(
-            landmark.x * canvas.width,
-            landmark.y * canvas.height,
+            transformedLandmark.x,
+            transformedLandmark.y,
             4, // radius
             0,
             2 * Math.PI
@@ -198,7 +229,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults }: P
       }
       videoElement.removeEventListener('loadeddata', initializePose);
     };
-  }, [isActive, videoElement, onPoseResults]);
+  }, [isActive, videoElement, onPoseResults, isPortraitMode]);
 
   if (!isActive || !videoElement) {
     return null;

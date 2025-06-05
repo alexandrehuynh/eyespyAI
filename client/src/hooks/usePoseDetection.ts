@@ -53,6 +53,15 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const REP_COOLDOWN_MS = 750;
   const POSITION_STABILITY_FRAMES = 5;
 
+  // Reset counters when exercise changes
+  useEffect(() => {
+    repCounterRef.current = 0;
+    exerciseStateRef.current = "neutral";
+    previousPositionsRef.current = [];
+    lastRepTimeRef.current = 0;
+    setSessionSeconds(0);
+  }, [exercise]);
+
   // Session timer
   useEffect(() => {
     if (!isActive || !metrics.isPersonDetected) return;
@@ -223,7 +232,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [calculateAngle],
   );
 
-  // Unified push-up analysis
+  // Unified push-up analysis with rep counting
   const analyzePushUp = useCallback(
     (landmarks: any[]) => {
       if (!landmarks || landmarks.length < 33) return null;
@@ -242,6 +251,11 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
       const avgElbowAngle = (leftElbowAngle + rightElbowAngle) / 2;
 
+      // Form analysis
+      const shoulderHeight = (leftShoulder.y + rightShoulder.y) / 2;
+      const hipHeight = (leftHip.y + rightHip.y) / 2;
+      const bodySag = Math.abs(shoulderHeight - hipHeight);
+
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
@@ -255,22 +269,77 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       }
 
       // Body alignment check
-      const shoulderHeight = (leftShoulder.y + rightShoulder.y) / 2;
-      const hipHeight = (leftHip.y + rightHip.y) / 2;
-      const bodySag = Math.abs(shoulderHeight - hipHeight);
-
       if (bodySag > exerciseConfigs.pushup.maxBodySag + 0.03) {
         feedbackList.push({ type: "warning", message: "Keep body straight - engage core", icon: "📏" });
         formScore -= 20;
       }
 
-      const isInPushUpPosition = bodySag < 0.3 && shoulderHeight > 0.3;
+      // Rep counting logic for push-ups
+      previousPositionsRef.current.push({
+        shoulderHeight,
+        elbowAngle: avgElbowAngle,
+        timestamp: Date.now(),
+      });
+
+      if (previousPositionsRef.current.length > 10) {
+        previousPositionsRef.current.shift();
+      }
+
+      let currentState = exerciseStateRef.current;
+      const now = Date.now();
+      let repDetected = false;
+
+      if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
+        const recentPositions = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES);
+        const avgRecentShoulderHeight = recentPositions.reduce((sum, pos) => sum + pos.shoulderHeight, 0) / recentPositions.length;
+        const avgRecentElbowAngle = recentPositions.reduce((sum, pos) => sum + pos.elbowAngle, 0) / recentPositions.length;
+
+        // Detect down position (chest lowered, smaller elbow angle)
+        if (currentState === "neutral" || currentState === "up") {
+          if (avgRecentElbowAngle < 100 && avgRecentShoulderHeight > 0.3) {
+            const validDownFrames = recentPositions.filter(pos => pos.elbowAngle < 110 && pos.shoulderHeight > 0.25).length;
+            if (validDownFrames >= 3) {
+              currentState = "down";
+              exerciseStateRef.current = "down";
+            }
+          }
+        } 
+        // Detect up position (chest raised, larger elbow angle)
+        else if (currentState === "down") {
+          if (avgRecentElbowAngle > 140 && avgRecentShoulderHeight < 0.4) {
+            const validUpFrames = recentPositions.filter(pos => pos.elbowAngle > 135 && pos.shoulderHeight < 0.45).length;
+            if (validUpFrames >= 3 && now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
+              currentState = "up";
+              exerciseStateRef.current = "up";
+              repCounterRef.current += 1;
+              lastRepTimeRef.current = now;
+              repDetected = true;
+              repFlashRef.current = true;
+
+              setTimeout(() => {
+                repFlashRef.current = false;
+              }, 1000);
+            }
+          }
+        }
+      }
+
+      if (repDetected) {
+        feedbackList.push({
+          type: "success",
+          message: "Push-up Rep Detected! Great form!",
+          icon: "🎯",
+        });
+      }
+
+      const isInPushUpPosition = bodySag < 0.3 && shoulderHeight > 0.2;
+      const isExercising = currentState !== 'neutral' || (avgElbowAngle < 160 && shoulderHeight > 0.2);
 
       return {
         formQuality: Math.max(formScore, 0),
         reps: repCounterRef.current,
         feedback: feedbackList,
-        isExercising: isInPushUpPosition,
+        isExercising,
         currentAngles: {
           primaryAngle: avgElbowAngle,
           angleName: "Elbow Angle"
@@ -280,29 +349,40 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [calculateAngle],
   );
 
-  // Unified plank analysis
+  // Unified plank analysis with improved position detection
   const analyzePlank = useCallback(
     (landmarks: any[]) => {
       if (!landmarks || landmarks.length < 33) return null;
 
       const leftShoulder = landmarks[11];
       const rightShoulder = landmarks[12];
+      const leftElbow = landmarks[13];
+      const rightElbow = landmarks[14];
+      const leftWrist = landmarks[15];
+      const rightWrist = landmarks[16];
       const leftHip = landmarks[23];
       const rightHip = landmarks[24];
       const leftKnee = landmarks[25];
       const rightKnee = landmarks[26];
+      const leftAnkle = landmarks[27];
+      const rightAnkle = landmarks[28];
 
-      // Calculate body line angle
+      // Calculate body line angle (shoulder to hip to knee)
       const shoulderPoint = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipPoint = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
       const kneePoint = { x: (leftKnee.x + rightKnee.x) / 2, y: (leftKnee.y + rightKnee.y) / 2 };
+      const anklePoint = { x: (leftAnkle.x + rightAnkle.x) / 2, y: (leftAnkle.y + rightAnkle.y) / 2 };
 
       const bodyLineAngle = calculateAngle(shoulderPoint, hipPoint, kneePoint);
-
+      
+      // Calculate shoulder alignment for proper support
+      const elbowPoint = { x: (leftElbow.x + rightElbow.x) / 2, y: (leftElbow.y + rightElbow.y) / 2 };
+      const wristPoint = { x: (leftWrist.x + rightWrist.x) / 2, y: (leftWrist.y + rightWrist.y) / 2 };
+      
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze body line
+      // Analyze body line alignment
       const { min: minAngle, max: maxAngle } = exerciseConfigs.plank.targetBodyLine;
       if (bodyLineAngle < minAngle - 10) {
         feedbackList.push({ type: "warning", message: "Lower your hips - straighten body", icon: "📐" });
@@ -314,13 +394,51 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         feedbackList.push({ type: "success", message: "Perfect plank alignment!", icon: "✓" });
       }
 
-      const isInPlankPosition = shoulderPoint.y > 0.3 && Math.abs(shoulderPoint.y - hipPoint.y) < 0.2;
+      // Check shoulder alignment (elbows should be under shoulders)
+      const shoulderElbowAlignment = Math.abs(shoulderPoint.x - elbowPoint.x);
+      if (shoulderElbowAlignment > exerciseConfigs.plank.shoulderAlignment + 0.03) {
+        feedbackList.push({ type: "warning", message: "Position elbows under shoulders", icon: "📍" });
+        formScore -= 15;
+      }
+
+      // Check for hip sag
+      const hipSag = Math.abs(shoulderPoint.y - hipPoint.y);
+      if (hipSag > exerciseConfigs.plank.maxHipSag + 0.05) {
+        feedbackList.push({ type: "warning", message: "Engage core - prevent hip sag", icon: "💪" });
+        formScore -= 20;
+      }
+
+      // Position stability tracking for plank
+      previousPositionsRef.current.push({
+        bodyLineAngle,
+        hipHeight: hipPoint.y,
+        shoulderHeight: shoulderPoint.y,
+        timestamp: Date.now(),
+      });
+
+      if (previousPositionsRef.current.length > 10) {
+        previousPositionsRef.current.shift();
+      }
+
+      // Determine if in proper plank position
+      const isInPlankReady = shoulderPoint.y > 0.2 && shoulderPoint.y < 0.7; // Reasonable height range
+      const hasGoodAlignment = Math.abs(shoulderPoint.y - hipPoint.y) < 0.15; // Body relatively straight
+      const isGrounded = anklePoint.y > shoulderPoint.y; // Feet are lower than shoulders (on ground)
+      const hasStability = previousPositionsRef.current.length >= 3;
+
+      const isInPlankPosition = isInPlankReady && hasGoodAlignment && isGrounded;
+      const isExercising = isInPlankPosition && hasStability;
+
+      // Add position guidance if not in plank
+      if (!isInPlankPosition && isInPlankReady) {
+        feedbackList.push({ type: "warning", message: "Get into plank position", icon: "🧘" });
+      }
 
       return {
         formQuality: Math.max(formScore, 0),
-        reps: 0,
+        reps: 0, // Planks don't count reps, they measure hold time
         feedback: feedbackList,
-        isExercising: isInPlankPosition,
+        isExercising,
         currentAngles: {
           primaryAngle: bodyLineAngle,
           angleName: "Body Line"

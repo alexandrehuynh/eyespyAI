@@ -42,6 +42,10 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const [feedback, setFeedback] = useState<PoseFeedback[]>([]);
   const [sessionSeconds, setSessionSeconds] = useState(0);
 
+  const poseRef = useRef<Pose | null>(null);
+  const canvasRef = useRef<HTMLCanvasElement | null>(null);
+  const animationRef = useRef<number | null>(null);
+
   // Exercise-specific state
   const previousPositionsRef = useRef<any[]>([]);
   const repCounterRef = useRef(0);
@@ -50,7 +54,9 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const repFlashRef = useRef(false);
 
   // Rep validation thresholds
-  const REP_COOLDOWN_MS = 750;
+  const REP_COOLDOWN_MS = 750; // 0.75 seconds between reps
+  const SQUAT_HEIGHT_THRESHOLD = 0.15;
+  const PUSHUP_ANGLE_THRESHOLD = 30;
   const POSITION_STABILITY_FRAMES = 5;
 
   // Session timer
@@ -88,7 +94,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [],
   );
 
-  // Exercise configurations
+  // Exercise configurations for target ranges
   const exerciseConfigs = {
     squat: {
       targetKneeAngle: { min: 80, max: 95 },
@@ -107,7 +113,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     }
   };
 
-  // Unified squat analysis
+  // Unified squat analysis with form scoring and rep counting
   const analyzeSquat = useCallback(
     (landmarks: any[]) => {
       if (!landmarks || landmarks.length < 33) return null;
@@ -126,15 +132,16 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const rightKneeAngle = calculateAngle(rightHip, rightKnee, rightAnkle);
       const avgKneeAngle = (leftKneeAngle + rightKneeAngle) / 2;
 
-      // Form analysis
+      // Form analysis calculations
       const hipHeight = (leftHip.y + rightHip.y) / 2;
       const shoulderHeight = (leftShoulder.y + rightShoulder.y) / 2;
       const hipDepth = shoulderHeight - hipHeight;
 
+      // Enhanced form scoring
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze knee angle
+      // Analyze knee angle using config
       const { min: minKnee, max: maxKnee } = exerciseConfigs.squat.targetKneeAngle;
       if (avgKneeAngle > maxKnee + 20) {
         feedbackList.push({ type: "warning", message: "Go deeper - bend your knees more", icon: "⬇️" });
@@ -146,13 +153,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         feedbackList.push({ type: "success", message: "Perfect squat depth!", icon: "✓" });
       }
 
-      // Analyze hip depth
-      if (hipDepth < exerciseConfigs.squat.targetHipDepth - 0.05) {
-        feedbackList.push({ type: "warning", message: "Lower your hips below knee level", icon: "📐" });
-        formScore -= 20;
-      }
-
-      // Rep counting logic
+      // Store position history for rep counting
       previousPositionsRef.current.push({
         hipHeight,
         kneeAngle: avgKneeAngle,
@@ -163,6 +164,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         previousPositionsRef.current.shift();
       }
 
+      // Rep counting logic
       let currentState = exerciseStateRef.current;
       const now = Date.now();
       let repDetected = false;
@@ -242,6 +244,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const rightElbowAngle = calculateAngle(rightShoulder, rightElbow, rightWrist);
       const avgElbowAngle = (leftElbowAngle + rightElbowAngle) / 2;
 
+      // Form scoring
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 

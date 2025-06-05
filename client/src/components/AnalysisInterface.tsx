@@ -174,7 +174,7 @@ export default function AnalysisInterface({
                 </div>
 
                 {/* Real-time Angle Display */}
-                {metrics.currentAngles && (
+                {metrics.currentAngles && metrics.currentAngles.angles && (
                   <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300 text-lg">Angles</span>

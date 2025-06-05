@@ -99,20 +99,23 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [],
   );
 
-  // Exercise configurations
+  // Exercise configurations with acceptable and perfect ranges
   const exerciseConfigs = {
     squat: {
-      targetKneeAngle: { min: 80, max: 95 },
+      perfectKneeAngle: { min: 80, max: 95 },
+      acceptableKneeAngle: { min: 70, max: 110 },
       targetHipDepth: 0.15,
       maxTorsoLean: 20
     },
     pushup: {
-      targetElbowAngle: { min: 70, max: 90 },
+      perfectElbowAngle: { min: 70, max: 90 },
+      acceptableElbowAngle: { min: 60, max: 110 },
       maxBodySag: 0.05,
       minRangeOfMotion: 25
     },
     plank: {
-      targetBodyLine: { min: 170, max: 185 },
+      perfectBodyLine: { min: 170, max: 185 },
+      acceptableBodyLine: { min: 160, max: 195 },
       maxHipSag: 0.03,
       shoulderAlignment: 0.02
     }
@@ -145,16 +148,20 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze knee angle
-      const { min: minKnee, max: maxKnee } = exerciseConfigs.squat.targetKneeAngle;
-      if (avgKneeAngle > maxKnee + 20) {
+      // Analyze knee angle with perfect and acceptable ranges
+      const { min: perfectMinKnee, max: perfectMaxKnee } = exerciseConfigs.squat.perfectKneeAngle;
+      const { min: acceptableMinKnee, max: acceptableMaxKnee } = exerciseConfigs.squat.acceptableKneeAngle;
+      
+      if (avgKneeAngle >= perfectMinKnee && avgKneeAngle <= perfectMaxKnee) {
+        feedbackList.push({ type: "success", message: "Perfect squat depth!", icon: "✓" });
+      } else if (avgKneeAngle >= acceptableMinKnee && avgKneeAngle <= acceptableMaxKnee) {
+        feedbackList.push({ type: "success", message: "Good squat form - keep it up!", icon: "👍" });
+      } else if (avgKneeAngle > acceptableMaxKnee) {
         feedbackList.push({ type: "warning", message: "Go deeper - bend your knees more", icon: "⬇️" });
         formScore -= 25;
-      } else if (avgKneeAngle < minKnee - 10) {
+      } else if (avgKneeAngle < acceptableMinKnee) {
         feedbackList.push({ type: "warning", message: "Don't go too deep - protect your knees", icon: "⚠️" });
         formScore -= 15;
-      } else if (avgKneeAngle >= minKnee && avgKneeAngle <= maxKnee) {
-        feedbackList.push({ type: "success", message: "Perfect squat depth!", icon: "✓" });
       }
 
       // Analyze hip depth
@@ -220,6 +227,11 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
 
       const isExercising = currentState !== 'neutral' || (avgKneeAngle < 150 && hipHeight > 0.4);
 
+      // Ensure positive feedback when exercising with decent form
+      if (isExercising && feedbackList.length === 0) {
+        feedbackList.push({ type: "success", message: "Keep going - you're doing great!", icon: "💪" });
+      }
+
       // Calculate hip angle (shoulder-hip-knee)
       const hipMidpoint = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
       const shoulderMidpoint = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
@@ -274,13 +286,20 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze elbow angle
-      const { min: minElbow, max: maxElbow } = exerciseConfigs.pushup.targetElbowAngle;
-      if (avgElbowAngle > maxElbow + 30) {
+      // Analyze elbow angle with perfect and acceptable ranges
+      const { min: perfectMinElbow, max: perfectMaxElbow } = exerciseConfigs.pushup.perfectElbowAngle;
+      const { min: acceptableMinElbow, max: acceptableMaxElbow } = exerciseConfigs.pushup.acceptableElbowAngle;
+      
+      if (avgElbowAngle >= perfectMinElbow && avgElbowAngle <= perfectMaxElbow) {
+        feedbackList.push({ type: "success", message: "Perfect push-up depth!", icon: "✓" });
+      } else if (avgElbowAngle >= acceptableMinElbow && avgElbowAngle <= acceptableMaxElbow) {
+        feedbackList.push({ type: "success", message: "Good push-up form - keep it up!", icon: "👍" });
+      } else if (avgElbowAngle > acceptableMaxElbow) {
         feedbackList.push({ type: "warning", message: "Lower your chest more", icon: "⬇️" });
         formScore -= 25;
-      } else if (avgElbowAngle >= minElbow && avgElbowAngle <= maxElbow) {
-        feedbackList.push({ type: "success", message: "Perfect push-up depth!", icon: "✓" });
+      } else if (avgElbowAngle < acceptableMinElbow) {
+        feedbackList.push({ type: "warning", message: "Don't lower too much - maintain control", icon: "⚠️" });
+        formScore -= 15;
       }
 
       // Body alignment check
@@ -350,6 +369,11 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const isInPushUpPosition = bodySag < 0.3 && shoulderHeight > 0.2;
       const isExercising = currentState !== 'neutral' || (avgElbowAngle < 160 && shoulderHeight > 0.2);
 
+      // Ensure positive feedback when exercising with decent form
+      if (isExercising && feedbackList.length === 0) {
+        feedbackList.push({ type: "success", message: "Keep going - you're doing great!", icon: "💪" });
+      }
+
       // Calculate body line angle for push-up form
       const shoulderMidpoint = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
       const hipMidpoint = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
@@ -407,16 +431,20 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze body line alignment
-      const { min: minAngle, max: maxAngle } = exerciseConfigs.plank.targetBodyLine;
-      if (bodyLineAngle < minAngle - 10) {
+      // Analyze body line alignment with perfect and acceptable ranges
+      const { min: perfectMinAngle, max: perfectMaxAngle } = exerciseConfigs.plank.perfectBodyLine;
+      const { min: acceptableMinAngle, max: acceptableMaxAngle } = exerciseConfigs.plank.acceptableBodyLine;
+      
+      if (bodyLineAngle >= perfectMinAngle && bodyLineAngle <= perfectMaxAngle) {
+        feedbackList.push({ type: "success", message: "Perfect plank alignment!", icon: "✓" });
+      } else if (bodyLineAngle >= acceptableMinAngle && bodyLineAngle <= acceptableMaxAngle) {
+        feedbackList.push({ type: "success", message: "Good plank position - hold steady!", icon: "👍" });
+      } else if (bodyLineAngle < acceptableMinAngle) {
         feedbackList.push({ type: "warning", message: "Lower your hips - straighten body", icon: "📐" });
         formScore -= 25;
-      } else if (bodyLineAngle > maxAngle + 10) {
+      } else if (bodyLineAngle > acceptableMaxAngle) {
         feedbackList.push({ type: "warning", message: "Lift your hips - don't sag", icon: "⬆️" });
         formScore -= 25;
-      } else if (bodyLineAngle >= minAngle && bodyLineAngle <= maxAngle) {
-        feedbackList.push({ type: "success", message: "Perfect plank alignment!", icon: "✓" });
       }
 
       // Check shoulder alignment (elbows should be under shoulders)
@@ -457,6 +485,11 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       // Add position guidance if not in plank
       if (!isInPlankPosition && isInPlankReady) {
         feedbackList.push({ type: "warning", message: "Get into plank position", icon: "🧘" });
+      }
+
+      // Ensure positive feedback when exercising with decent form
+      if (isExercising && feedbackList.length === 0) {
+        feedbackList.push({ type: "success", message: "Keep holding - you're doing great!", icon: "💪" });
       }
 
       // Calculate hip angle for plank position analysis

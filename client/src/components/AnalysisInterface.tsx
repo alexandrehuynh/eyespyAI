@@ -177,8 +177,15 @@ export default function AnalysisInterface({
                 {metrics.currentAngles && (
                   <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
                     <div className="flex justify-between items-center">
-                      <span className="text-slate-300 text-lg">{metrics.currentAngles.angleName}</span>
-                      <span className="text-blue-400 font-bold text-2xl">{Math.round(metrics.currentAngles.primaryAngle)}°</span>
+                      <span className="text-slate-300 text-lg">Angles</span>
+                      <span className="text-blue-400 font-bold text-xl">
+                        {metrics.currentAngles.angles.map((angle, index) => (
+                          <span key={angle.name}>
+                            {angle.name} {Math.round(angle.value)}°
+                            {index < metrics.currentAngles.angles.length - 1 ? ' | ' : ''}
+                          </span>
+                        ))}
+                      </span>
                     </div>
                   </div>
                 )}

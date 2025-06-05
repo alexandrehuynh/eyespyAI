@@ -16,8 +16,10 @@ export interface PoseMetrics {
     | "lost"
     | "repositioning";
   currentAngles?: {
-    primaryAngle: number;
-    angleName: string;
+    angles: Array<{
+      name: string;
+      value: number;
+    }>;
   };
 }
 
@@ -218,14 +220,27 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
 
       const isExercising = currentState !== 'neutral' || (avgKneeAngle < 150 && hipHeight > 0.4);
 
+      // Calculate hip angle (shoulder-hip-knee)
+      const hipMidpoint = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      const shoulderMidpoint = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const kneeMidpoint = { x: (leftKnee.x + rightKnee.x) / 2, y: (leftKnee.y + rightKnee.y) / 2 };
+      const hipAngle = calculateAngle(shoulderMidpoint, hipMidpoint, kneeMidpoint);
+
+      // Calculate torso angle (vertical reference to torso lean)
+      const verticalReference = { x: shoulderMidpoint.x, y: shoulderMidpoint.y + 0.2 };
+      const torsoAngle = calculateAngle(hipMidpoint, shoulderMidpoint, verticalReference);
+
       return {
         formQuality: Math.max(formScore, 0),
         reps: repCounterRef.current,
         feedback: feedbackList,
         isExercising,
         currentAngles: {
-          primaryAngle: avgKneeAngle,
-          angleName: "Knee Angle"
+          angles: [
+            { name: "Knee", value: avgKneeAngle },
+            { name: "Hip", value: hipAngle },
+            { name: "Torso", value: torsoAngle }
+          ]
         }
       };
     },
@@ -335,14 +350,24 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const isInPushUpPosition = bodySag < 0.3 && shoulderHeight > 0.2;
       const isExercising = currentState !== 'neutral' || (avgElbowAngle < 160 && shoulderHeight > 0.2);
 
+      // Calculate body line angle for push-up form
+      const shoulderMidpoint = { x: (leftShoulder.x + rightShoulder.x) / 2, y: (leftShoulder.y + rightShoulder.y) / 2 };
+      const hipMidpoint = { x: (leftHip.x + rightHip.x) / 2, y: (leftHip.y + rightHip.y) / 2 };
+      const leftKnee = landmarks[25];
+      const rightKnee = landmarks[26];
+      const kneeMidpoint = { x: (leftKnee.x + rightKnee.x) / 2, y: (leftKnee.y + rightKnee.y) / 2 };
+      const bodyLineAngle = calculateAngle(shoulderMidpoint, hipMidpoint, kneeMidpoint);
+
       return {
         formQuality: Math.max(formScore, 0),
         reps: repCounterRef.current,
         feedback: feedbackList,
         isExercising,
         currentAngles: {
-          primaryAngle: avgElbowAngle,
-          angleName: "Elbow Angle"
+          angles: [
+            { name: "Elbow", value: avgElbowAngle },
+            { name: "Body Line", value: bodyLineAngle }
+          ]
         }
       };
     },
@@ -434,14 +459,19 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         feedbackList.push({ type: "warning", message: "Get into plank position", icon: "🧘" });
       }
 
+      // Calculate hip angle for plank position analysis
+      const hipAngle = calculateAngle(shoulderPoint, hipPoint, kneePoint);
+
       return {
         formQuality: Math.max(formScore, 0),
         reps: 0, // Planks don't count reps, they measure hold time
         feedback: feedbackList,
         isExercising,
         currentAngles: {
-          primaryAngle: bodyLineAngle,
-          angleName: "Body Line"
+          angles: [
+            { name: "Body Line", value: bodyLineAngle },
+            { name: "Hip", value: hipAngle }
+          ]
         }
       };
     },

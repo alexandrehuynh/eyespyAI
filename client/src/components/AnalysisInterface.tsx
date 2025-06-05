@@ -172,6 +172,16 @@ export default function AnalysisInterface({
                     <span className="text-white font-bold text-2xl">{metrics.sessionTime}</span>
                   </div>
                 </div>
+
+                {/* Real-time Angle Display */}
+                {metrics.currentAngles && (
+                  <div className="bg-slate-800/50 rounded-xl p-6 border border-slate-700/50">
+                    <div className="flex justify-between items-center">
+                      <span className="text-slate-300 text-lg">{metrics.currentAngles.angleName}</span>
+                      <span className="text-blue-400 font-bold text-2xl">{Math.round(metrics.currentAngles.primaryAngle)}°</span>
+                    </div>
+                  </div>
+                )}
               </>
             )}
           </div>

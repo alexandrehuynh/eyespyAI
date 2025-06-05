@@ -59,6 +59,7 @@ export default function AnalysisInterface({
               trackingStatus={metrics.trackingStatus}
               detectionQuality={metrics.detectionQuality}
               isPersonDetected={metrics.isPersonDetected}
+              isPortraitMode={isPortraitMode}
             />
             
             {/* Rep Flash Indicator */}

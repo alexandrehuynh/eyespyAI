@@ -202,6 +202,7 @@ export default function CameraView({ isActive, onVideoReady, onPoseResults, trac
         videoElement={videoRef.current}
         isActive={isActive}
         onPoseResults={onPoseResults}
+        isPortraitMode={isPortraitMode}
       />
       
       {/* Top Status Bar */}

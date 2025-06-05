@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { Exercise } from "@/pages/home";
 import CameraView from "@/components/CameraView";
 import { usePoseDetection } from "@/hooks/usePoseDetection";
@@ -22,7 +22,26 @@ export default function AnalysisInterface({
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
-  const [isPortraitMode, setIsPortraitMode] = useState(true);
+  
+  // Set default camera orientation based on exercise type
+  const getDefaultOrientation = (exercise: Exercise) => {
+    switch (exercise) {
+      case 'squat':
+        return true; // Portrait for vertical movement
+      case 'pushup':
+      case 'plank':
+        return false; // Landscape for horizontal body positions
+      default:
+        return true;
+    }
+  };
+  
+  const [isPortraitMode, setIsPortraitMode] = useState(getDefaultOrientation(selectedExercise));
+  
+  // Update camera orientation when exercise changes
+  useEffect(() => {
+    setIsPortraitMode(getDefaultOrientation(selectedExercise));
+  }, [selectedExercise]);
   
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
 

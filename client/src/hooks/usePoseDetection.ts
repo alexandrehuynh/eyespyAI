@@ -49,7 +49,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const repFlashRef = useRef(false);
 
   // Rep validation thresholds
-  const REP_COOLDOWN_MS = 2000; // 2 seconds between reps
+  const REP_COOLDOWN_MS = 750; // 0.75 seconds between reps
   const SQUAT_HEIGHT_THRESHOLD = 0.15; // Minimum hip height change for squat
   const PUSHUP_ANGLE_THRESHOLD = 30; // Minimum angle change for push-up
   const POSITION_STABILITY_FRAMES = 5; // Frames to confirm position

@@ -17,8 +17,7 @@ interface CameraViewProps {
   isPersonDetected?: boolean;
   feedback?: FeedbackItem[];
   isPortraitMode?: boolean;
-  onOrientationChange?: (isPortrait: boolean) => void;
-  onCameraChange?: (deviceId: string) => void;
+  currentCameraId?: string;
 }
 
 export default function CameraView({ 
@@ -30,13 +29,10 @@ export default function CameraView({
   isPersonDetected = false, 
   feedback = [], 
   isPortraitMode = true,
-  onOrientationChange,
-  onCameraChange
+  currentCameraId
 }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
-  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
-  const [currentCameraId, setCurrentCameraId] = useState<string>('');
   const [error, setError] = useState<string | null>(null);
   const [permissionState, setPermissionState] = useState<'pending' | 'granted' | 'denied'>('pending');
 
@@ -48,30 +44,7 @@ export default function CameraView({
     return 'aspect-video';
   };
 
-  // Enumerate available cameras
-  useEffect(() => {
-    const getCameraDevices = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setAvailableCameras(videoDevices);
-        
-        // Set default camera (prefer front camera if available)
-        if (videoDevices.length > 0 && !currentCameraId) {
-          const frontCamera = videoDevices.find(device => 
-            device.label.toLowerCase().includes('front') || 
-            device.label.toLowerCase().includes('user')
-          );
-          const defaultCamera = frontCamera || videoDevices[0];
-          setCurrentCameraId(defaultCamera.deviceId);
-        }
-      } catch (err) {
-        console.error('Error enumerating devices:', err);
-      }
-    };
 
-    getCameraDevices();
-  }, [currentCameraId]);
 
   useEffect(() => {
     if (!isActive) {
@@ -97,7 +70,11 @@ export default function CameraView({
           audio: false
         };
 
+        console.log('Attempting to start camera with constraints:', constraints);
+        console.log('Current camera ID:', currentCameraId);
+
         const mediaStream = await navigator.mediaDevices.getUserMedia(constraints);
+        console.log('Camera stream started successfully');
 
         setStream(mediaStream);
         setPermissionState('granted');
@@ -135,32 +112,7 @@ export default function CameraView({
     };
   }, [isActive, currentCameraId]);
 
-  // Handle camera switching
-  const handleCameraSwitch = async (deviceId: string) => {
-    if (stream) {
-      stream.getTracks().forEach(track => track.stop());
-      setStream(null);
-    }
-    setCurrentCameraId(deviceId);
-    if (onCameraChange) {
-      onCameraChange(deviceId);
-    }
-  };
 
-  // Get camera labels for display
-  const getCameraLabel = (camera: MediaDeviceInfo) => {
-    if (camera.label) {
-      // Simplify camera labels for better UX
-      if (camera.label.toLowerCase().includes('front') || camera.label.toLowerCase().includes('user')) {
-        return 'Front Camera';
-      }
-      if (camera.label.toLowerCase().includes('back') || camera.label.toLowerCase().includes('environment')) {
-        return 'Back Camera';
-      }
-      return camera.label.split('(')[0].trim() || `Camera ${availableCameras.indexOf(camera) + 1}`;
-    }
-    return `Camera ${availableCameras.indexOf(camera) + 1}`;
-  };
 
   // Update video element when stream changes
   useEffect(() => {

@@ -82,6 +82,9 @@ export default function AnalysisInterface({
 
   // Handle camera switching
   const handleCameraSwitch = (targetType: 'front' | 'back') => {
+    console.log(`Attempting to switch to ${targetType} camera`);
+    console.log('Available cameras:', availableCameras.map(cam => ({ id: cam.deviceId, label: cam.label })));
+    
     const targetCamera = availableCameras.find(camera => {
       const label = camera.label.toLowerCase();
       if (targetType === 'front') {
@@ -92,7 +95,10 @@ export default function AnalysisInterface({
     });
     
     if (targetCamera) {
+      console.log(`Switching to camera: ${targetCamera.label} (${targetCamera.deviceId})`);
       setCurrentCameraId(targetCamera.deviceId);
+    } else {
+      console.log(`No ${targetType} camera found, available cameras:`, availableCameras);
     }
   };
 
@@ -188,8 +194,7 @@ export default function AnalysisInterface({
               detectionQuality={metrics.detectionQuality}
               isPersonDetected={metrics.isPersonDetected}
               isPortraitMode={isPortraitMode}
-              onOrientationChange={setIsPortraitMode}
-              onCameraChange={setCurrentCameraId}
+              currentCameraId={currentCameraId}
             />
             
             {/* Rep Flash Indicator */}

@@ -18,6 +18,7 @@ interface CameraViewProps {
   feedback?: FeedbackItem[];
   isPortraitMode?: boolean;
   currentCameraId?: string;
+  onCamerasEnumerated?: (cameras: MediaDeviceInfo[]) => void;
 }
 
 export default function CameraView({ 
@@ -29,7 +30,8 @@ export default function CameraView({
   isPersonDetected = false, 
   feedback = [], 
   isPortraitMode = true,
-  currentCameraId
+  currentCameraId,
+  onCamerasEnumerated
 }: CameraViewProps) {
   const videoRef = useRef<HTMLVideoElement>(null);
   const [stream, setStream] = useState<MediaStream | null>(null);
@@ -78,6 +80,20 @@ export default function CameraView({
 
         setStream(mediaStream);
         setPermissionState('granted');
+
+        // Enumerate cameras after successful permission grant
+        try {
+          console.log('Enumerating cameras after permission grant...');
+          const devices = await navigator.mediaDevices.enumerateDevices();
+          const videoDevices = devices.filter(device => device.kind === 'videoinput');
+          console.log('Found cameras:', videoDevices.map(cam => ({ id: cam.deviceId, label: cam.label })));
+          
+          if (onCamerasEnumerated) {
+            onCamerasEnumerated(videoDevices);
+          }
+        } catch (enumError) {
+          console.error('Error enumerating cameras:', enumError);
+        }
 
         if (videoRef.current) {
           videoRef.current.srcObject = mediaStream;

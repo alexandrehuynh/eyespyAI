@@ -24,6 +24,7 @@ export default function AnalysisInterface({
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
   const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
   const [currentCameraId, setCurrentCameraId] = useState<string>('');
+  const [camerasEnumerated, setCamerasEnumerated] = useState(false);
   
   // Set default camera orientation based on exercise type
   const getDefaultOrientation = (exercise: Exercise) => {
@@ -41,28 +42,22 @@ export default function AnalysisInterface({
   const [isPortraitMode, setIsPortraitMode] = useState(getDefaultOrientation(selectedExercise));
 
   // Get available cameras on component mount
-  useEffect(() => {
-    const getCameraDevices = async () => {
-      try {
-        const devices = await navigator.mediaDevices.enumerateDevices();
-        const videoDevices = devices.filter(device => device.kind === 'videoinput');
-        setAvailableCameras(videoDevices);
-        
-        // Set default camera (prefer front camera)
-        if (videoDevices.length > 0 && !currentCameraId) {
-          const frontCamera = videoDevices.find(device => 
-            device.label.toLowerCase().includes('front') || 
-            device.label.toLowerCase().includes('user')
-          );
-          const defaultCamera = frontCamera || videoDevices[0];
-          setCurrentCameraId(defaultCamera.deviceId);
-        }
-      } catch (err) {
-        console.error('Error enumerating devices:', err);
-      }
-    };
-
-    getCameraDevices();
+  // Handle camera enumeration callback from CameraView
+  const handleCamerasEnumerated = useCallback((cameras: MediaDeviceInfo[]) => {
+    console.log('Cameras enumerated in AnalysisInterface:', cameras);
+    setAvailableCameras(cameras);
+    setCamerasEnumerated(true);
+    
+    // Set default camera if not already set (prefer front camera)
+    if (cameras.length > 0 && !currentCameraId) {
+      const frontCamera = cameras.find(device => 
+        device.label.toLowerCase().includes('front') || 
+        device.label.toLowerCase().includes('user')
+      );
+      const defaultCamera = frontCamera || cameras[0];
+      console.log('Setting default camera:', defaultCamera.label);
+      setCurrentCameraId(defaultCamera.deviceId);
+    }
   }, [currentCameraId]);
   
   // Update camera orientation when exercise changes
@@ -156,11 +151,11 @@ export default function AnalysisInterface({
                   }
                 }}
                 className={`flex items-center justify-between px-4 py-2 rounded-lg border transition-all duration-200 min-w-[130px] touch-manipulation ${
-                  availableCameras.length <= 1 
+                  !camerasEnumerated || availableCameras.length <= 1 
                     ? 'opacity-50 cursor-not-allowed bg-slate-700/30 border-slate-600/30' 
                     : 'bg-slate-700/50 hover:bg-slate-600/50 border-slate-600/50'
                 } text-white`}
-                disabled={availableCameras.length <= 1}
+                disabled={!camerasEnumerated || availableCameras.length <= 1}
               >
                 <div className="flex items-center gap-2">
                   <div className={`w-2 h-2 rounded-full transition-colors ${
@@ -195,6 +190,7 @@ export default function AnalysisInterface({
               isPersonDetected={metrics.isPersonDetected}
               isPortraitMode={isPortraitMode}
               currentCameraId={currentCameraId}
+              onCamerasEnumerated={handleCamerasEnumerated}
             />
             
             {/* Rep Flash Indicator */}

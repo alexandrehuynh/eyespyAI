@@ -1,5 +1,12 @@
 import { useRef, useEffect } from "react";
-import { Pose, Results } from "@mediapipe/pose";
+import { Results } from "@mediapipe/pose";
+
+// Global interface declaration for MediaPipe loaded via CDN
+declare global {
+  interface Window {
+    Pose: any;
+  }
+}
 
 interface PoseOverlayProps {
   videoElement: HTMLVideoElement | null;
@@ -74,17 +81,53 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
   const poseRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
 
+  // Load MediaPipe script dynamically from CDN
+  const loadMediaPipeScript = (): Promise<any> => {
+    return new Promise((resolve, reject) => {
+      // Check if MediaPipe is already loaded
+      if (window.Pose) {
+        console.log('MediaPipe Pose already loaded from global window');
+        resolve(window.Pose);
+        return;
+      }
+
+      console.log('Loading MediaPipe Pose script from CDN...');
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/pose.js';
+      script.async = true;
+      
+      script.onload = () => {
+        console.log('MediaPipe script loaded successfully');
+        if (window.Pose) {
+          resolve(window.Pose);
+        } else {
+          reject(new Error('MediaPipe Pose not available on window after script load'));
+        }
+      };
+      
+      script.onerror = (error) => {
+        console.error('Failed to load MediaPipe script:', error);
+        reject(new Error('Failed to load MediaPipe script from CDN'));
+      };
+      
+      document.head.appendChild(script);
+    });
+  };
+
   useEffect(() => {
     if (!isActive || !videoElement || !canvasRef.current) return;
 
     const initializePose = async () => {
       try {
-        console.log('Initializing MediaPipe Pose with static import...');
+        console.log('Initializing MediaPipe Pose with CDN script loading...');
         
-        const pose = new Pose({
-          locateFile: (file) => {
+        // Load MediaPipe from CDN
+        const PoseConstructor = await loadMediaPipeScript();
+        
+        const pose = new PoseConstructor({
+          locateFile: (file: string) => {
             console.log(`Loading MediaPipe file: ${file}`);
-            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
+            return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1675469404/${file}`;
           }
         });
 
@@ -116,37 +159,52 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           name: errorObj.name || 'Unknown error type'
         });
         
-        // Try alternative initialization approach
+        // Try alternative CDN approach with different version
         try {
-          console.log('Attempting alternative MediaPipe initialization...');
-          const pose = new Pose({
-            locateFile: (file) => {
-              // Use exact version for better reliability
-              return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1635989137/${file}`;
-            }
-          });
+          console.log('Attempting alternative CDN initialization...');
           
-          pose.setOptions({
-            modelComplexity: 0, // Lower complexity for better compatibility
-            smoothLandmarks: true,
-            enableSegmentation: false,
-            smoothSegmentation: false,
-            minDetectionConfidence: 0.3,
-            minTrackingConfidence: 0.3
-          });
+          // Try loading different version as fallback
+          const fallbackScript = document.createElement('script');
+          fallbackScript.src = 'https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1635989137/pose.js';
+          fallbackScript.async = true;
+          
+          fallbackScript.onload = () => {
+            try {
+              if (window.Pose) {
+                const pose = new window.Pose({
+                  locateFile: (file: string) => {
+                    return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1635989137/${file}`;
+                  }
+                });
+                
+                pose.setOptions({
+                  modelComplexity: 0, // Lower complexity for better compatibility
+                  smoothLandmarks: true,
+                  enableSegmentation: false,
+                  smoothSegmentation: false,
+                  minDetectionConfidence: 0.3,
+                  minTrackingConfidence: 0.3
+                });
 
-          pose.onResults((results: Results) => {
-            drawPose(results);
-            if (onPoseResults) {
-              onPoseResults(results);
+                pose.onResults((results: Results) => {
+                  drawPose(results);
+                  if (onPoseResults) {
+                    onPoseResults(results);
+                  }
+                });
+
+                console.log('Alternative MediaPipe Pose initialized successfully');
+                poseRef.current = pose;
+                processFrame();
+              }
+            } catch (innerError) {
+              console.error('Alternative MediaPipe initialization failed:', innerError);
             }
-          });
-
-          console.log('Alternative MediaPipe Pose initialized successfully');
-          poseRef.current = pose;
-          processFrame();
+          };
+          
+          document.head.appendChild(fallbackScript);
         } catch (fallbackError) {
-          console.error('Alternative MediaPipe initialization also failed:', fallbackError);
+          console.error('Alternative script loading also failed:', fallbackError);
         }
       }
     };

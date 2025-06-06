@@ -80,6 +80,36 @@ export default function AnalysisInterface({
     processPoseResultsCallback(results);
   }, [processPoseResultsCallback]);
 
+  // Handle camera switching
+  const handleCameraSwitch = (targetType: 'front' | 'back') => {
+    const targetCamera = availableCameras.find(camera => {
+      const label = camera.label.toLowerCase();
+      if (targetType === 'front') {
+        return label.includes('front') || label.includes('user');
+      } else {
+        return label.includes('back') || label.includes('environment');
+      }
+    });
+    
+    if (targetCamera) {
+      setCurrentCameraId(targetCamera.deviceId);
+    }
+  };
+
+  // Get current camera type for visual feedback
+  const getCurrentCameraType = () => {
+    const currentCamera = availableCameras.find(camera => camera.deviceId === currentCameraId);
+    if (currentCamera) {
+      const label = currentCamera.label.toLowerCase();
+      if (label.includes('front') || label.includes('user')) {
+        return 'front';
+      } else if (label.includes('back') || label.includes('environment')) {
+        return 'back';
+      }
+    }
+    return null;
+  };
+
   const exercise = exercises[selectedExercise];
 
   return (
@@ -120,14 +150,24 @@ export default function AnalysisInterface({
               {/* Camera Selection Controls */}
               <div className="flex gap-2">
                 <button
-                  onClick={() => {/* Front camera logic */}}
-                  className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
+                  onClick={() => handleCameraSwitch('front')}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                    getCurrentCameraType() === 'front'
+                      ? 'bg-green-600 text-white border-green-500' 
+                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
+                  } ${availableCameras.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={availableCameras.length <= 1}
                 >
                   Front Cam
                 </button>
                 <button
-                  onClick={() => {/* Back camera logic */}}
-                  className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
+                  onClick={() => handleCameraSwitch('back')}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                    getCurrentCameraType() === 'back'
+                      ? 'bg-green-600 text-white border-green-500' 
+                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
+                  } ${availableCameras.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
+                  disabled={availableCameras.length <= 1}
                 >
                   Back Cam
                 </button>
@@ -150,6 +190,8 @@ export default function AnalysisInterface({
               detectionQuality={metrics.detectionQuality}
               isPersonDetected={metrics.isPersonDetected}
               isPortraitMode={isPortraitMode}
+              onOrientationChange={setIsPortraitMode}
+              onCameraChange={setCurrentCameraId}
             />
             
             {/* Rep Flash Indicator */}

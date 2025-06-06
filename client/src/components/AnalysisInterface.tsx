@@ -163,7 +163,8 @@ export default function AnalysisInterface({
                     getCurrentCameraType() === 'back' ? 'bg-purple-400' : 'bg-gray-400'
                   }`}></div>
                   <span className="font-medium">
-                    {getCurrentCameraType() === 'front' ? 'Front Cam' : 
+                    {!camerasEnumerated ? 'Loading...' :
+                     getCurrentCameraType() === 'front' ? 'Front Cam' : 
                      getCurrentCameraType() === 'back' ? 'Back Cam' : 'Camera'}
                   </span>
                 </div>

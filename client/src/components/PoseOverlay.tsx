@@ -119,77 +119,35 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
   useEffect(() => {
     if (!isActive || !videoElement || !canvasRef.current) return;
 
-    // Comprehensive person detection validation to prevent false positives
+    // Aligned person detection validation matching usePoseDetection logic
     const validatePersonPresence = (landmarks: any[]) => {
       if (!landmarks || landmarks.length < 33) return false;
 
-      // Key body landmarks that must be present for valid person detection
-      const criticalLandmarks = [
-        11, 12, // Left and right shoulders
-        23, 24, // Left and right hips
-        13, 14, // Left and right elbows
-        25, 26, // Left and right knees
-      ];
-
-      // Check minimum visibility and confidence for critical landmarks
-      let visibleCriticalCount = 0;
-      let totalConfidence = 0;
-
-      for (const index of criticalLandmarks) {
-        const landmark = landmarks[index];
-        if (landmark && landmark.visibility > 0.5) {
-          visibleCriticalCount++;
-          totalConfidence += landmark.visibility;
-        }
-      }
-
-      // Require at least 6 out of 8 critical landmarks to be visible
-      if (visibleCriticalCount < 6) return false;
-
-      // Check average confidence of visible landmarks
-      const averageConfidence = totalConfidence / visibleCriticalCount;
-      if (averageConfidence < 0.6) return false;
-
-      // Validate body structure coherence
-      const leftShoulder = landmarks[11];
-      const rightShoulder = landmarks[12];
-      const leftHip = landmarks[23];
-      const rightHip = landmarks[24];
-
-      // All torso landmarks must be visible for structure validation
-      if (!leftShoulder || !rightShoulder || !leftHip || !rightHip ||
-          leftShoulder.visibility < 0.5 || rightShoulder.visibility < 0.5 ||
-          leftHip.visibility < 0.5 || rightHip.visibility < 0.5) {
+      // Use same key landmarks as usePoseDetection assessPoseQuality
+      const keyLandmarks = [11, 12, 23, 24, 25, 26, 13, 14]; // shoulders, hips, knees, elbows
+      const visibleKeyLandmarks = keyLandmarks.filter(index => 
+        landmarks[index] && (landmarks[index].visibility || 0) > 0.5
+      );
+      
+      // Match usePoseDetection completeness threshold (0.5 = lost, 0.75 = partial)
+      const completeness = visibleKeyLandmarks.length / keyLandmarks.length;
+      
+      // Allow drawing if completeness >= 0.5 (same as usePoseDetection "partial" threshold)
+      if (completeness < 0.5) {
         return false;
       }
 
-      // Validate reasonable body proportions
-      const shoulderDistance = Math.abs(leftShoulder.x - rightShoulder.x);
-      const hipDistance = Math.abs(leftHip.x - rightHip.x);
-      const torsoHeight = Math.abs((leftShoulder.y + rightShoulder.y) / 2 - (leftHip.y + rightHip.y) / 2);
+      // Basic phantom detection: ensure landmarks aren't all clustered in tiny area
+      const allVisibleLandmarks = landmarks.filter(lm => lm && (lm.visibility || 0) > 0.3);
+      if (allVisibleLandmarks.length < 5) return false;
 
-      // Check if landmarks form reasonable human proportions
-      if (shoulderDistance < 0.05 || shoulderDistance > 0.5) return false;
-      if (hipDistance < 0.05 || hipDistance > 0.5) return false;
-      if (torsoHeight < 0.1 || torsoHeight > 0.6) return false;
-
-      // Validate shoulders are above hips (normal human posture)
-      const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
-      const avgHipY = (leftHip.y + rightHip.y) / 2;
-      if (avgShoulderY > avgHipY) return false; // Shoulders should be above hips
-
-      // Check landmark distribution to avoid clustered random points
-      const allVisibleLandmarks = landmarks.filter(lm => lm && lm.visibility > 0.3);
-      if (allVisibleLandmarks.length < 10) return false;
-
-      // Calculate bounding box of visible landmarks
       const xCoords = allVisibleLandmarks.map(lm => lm.x);
       const yCoords = allVisibleLandmarks.map(lm => lm.y);
       const xRange = Math.max(...xCoords) - Math.min(...xCoords);
       const yRange = Math.max(...yCoords) - Math.min(...yCoords);
 
-      // Require reasonable spatial distribution (not all clustered in tiny area)
-      if (xRange < 0.1 || yRange < 0.2) return false;
+      // Prevent phantom skeletons from tiny clustered points
+      if (xRange < 0.05 || yRange < 0.05) return false;
 
       return true;
     };

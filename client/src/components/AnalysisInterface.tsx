@@ -122,63 +122,61 @@ export default function AnalysisInterface({
             <h3 className="text-2xl font-bold text-white mb-4">Live Camera Feed</h3>
             
             {/* Camera Controls Row */}
-            <div className="flex flex-col sm:flex-row gap-4 mb-4">
-              {/* Orientation Controls */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => setIsPortraitMode(true)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    isPortraitMode 
-                      ? 'bg-blue-600 text-white border-blue-500' 
-                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
-                  }`}
-                >
-                  Portrait
-                </button>
-                <button
-                  onClick={() => setIsPortraitMode(false)}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    !isPortraitMode 
-                      ? 'bg-blue-600 text-white border-blue-500' 
-                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
-                  }`}
-                >
-                  Landscape
-                </button>
-              </div>
+            <div className="flex flex-col sm:flex-row gap-3 mb-4">
+              {/* Orientation Toggle */}
+              <button
+                onClick={() => setIsPortraitMode(!isPortraitMode)}
+                className="flex items-center justify-between bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-all duration-200 min-w-[130px] touch-manipulation"
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full transition-colors ${
+                    isPortraitMode ? 'bg-blue-400' : 'bg-orange-400'
+                  }`}></div>
+                  <span className="font-medium">{isPortraitMode ? 'Portrait' : 'Landscape'}</span>
+                </div>
+                <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4" />
+                </svg>
+              </button>
 
-              {/* Camera Selection Controls */}
-              <div className="flex gap-2">
-                <button
-                  onClick={() => handleCameraSwitch('front')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    getCurrentCameraType() === 'front'
-                      ? 'bg-green-600 text-white border-green-500' 
-                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
-                  } ${availableCameras.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={availableCameras.length <= 1}
-                >
-                  Front Cam
-                </button>
-                <button
-                  onClick={() => handleCameraSwitch('back')}
-                  className={`px-4 py-2 rounded-lg border transition-colors ${
-                    getCurrentCameraType() === 'back'
-                      ? 'bg-green-600 text-white border-green-500' 
-                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
-                  } ${availableCameras.length <= 1 ? 'opacity-50 cursor-not-allowed' : ''}`}
-                  disabled={availableCameras.length <= 1}
-                >
-                  Back Cam
-                </button>
-              </div>
+              {/* Camera Toggle */}
+              <button
+                onClick={() => {
+                  const currentType = getCurrentCameraType();
+                  if (currentType === 'front') {
+                    handleCameraSwitch('back');
+                  } else {
+                    handleCameraSwitch('front');
+                  }
+                }}
+                className={`flex items-center justify-between px-4 py-2 rounded-lg border transition-all duration-200 min-w-[130px] touch-manipulation ${
+                  availableCameras.length <= 1 
+                    ? 'opacity-50 cursor-not-allowed bg-slate-700/30 border-slate-600/30' 
+                    : 'bg-slate-700/50 hover:bg-slate-600/50 border-slate-600/50'
+                } text-white`}
+                disabled={availableCameras.length <= 1}
+              >
+                <div className="flex items-center gap-2">
+                  <div className={`w-2 h-2 rounded-full transition-colors ${
+                    getCurrentCameraType() === 'front' ? 'bg-green-400' : 
+                    getCurrentCameraType() === 'back' ? 'bg-purple-400' : 'bg-gray-400'
+                  }`}></div>
+                  <span className="font-medium">
+                    {getCurrentCameraType() === 'front' ? 'Front Cam' : 
+                     getCurrentCameraType() === 'back' ? 'Back Cam' : 'Camera'}
+                  </span>
+                </div>
+                <svg className="w-4 h-4 opacity-60" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l4-4 4 4" />
+                </svg>
+              </button>
             </div>
 
             {/* Exercise-specific Guidance */}
             <div className="text-sm text-slate-400 mb-2">
               💡 {selectedExercise === 'squat' 
-                ? 'Portrait mode + front camera works best' 
-                : 'Landscape mode + back camera recommended'}
+                ? 'Portrait mode recommended for vertical movement tracking' 
+                : 'Landscape mode recommended for horizontal body position'}
             </div>
           </div>
           <div className="relative">

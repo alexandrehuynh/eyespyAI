@@ -81,6 +81,8 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
   const poseRef = useRef<any>(null);
   const animationRef = useRef<number | null>(null);
 
+
+
   // Load MediaPipe script dynamically from CDN
   const loadMediaPipeScript = (): Promise<any> => {
     return new Promise((resolve, reject) => {
@@ -116,6 +118,81 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
 
   useEffect(() => {
     if (!isActive || !videoElement || !canvasRef.current) return;
+
+    // Comprehensive person detection validation to prevent false positives
+    const validatePersonPresence = (landmarks: any[]) => {
+      if (!landmarks || landmarks.length < 33) return false;
+
+      // Key body landmarks that must be present for valid person detection
+      const criticalLandmarks = [
+        11, 12, // Left and right shoulders
+        23, 24, // Left and right hips
+        13, 14, // Left and right elbows
+        25, 26, // Left and right knees
+      ];
+
+      // Check minimum visibility and confidence for critical landmarks
+      let visibleCriticalCount = 0;
+      let totalConfidence = 0;
+
+      for (const index of criticalLandmarks) {
+        const landmark = landmarks[index];
+        if (landmark && landmark.visibility > 0.5) {
+          visibleCriticalCount++;
+          totalConfidence += landmark.visibility;
+        }
+      }
+
+      // Require at least 6 out of 8 critical landmarks to be visible
+      if (visibleCriticalCount < 6) return false;
+
+      // Check average confidence of visible landmarks
+      const averageConfidence = totalConfidence / visibleCriticalCount;
+      if (averageConfidence < 0.6) return false;
+
+      // Validate body structure coherence
+      const leftShoulder = landmarks[11];
+      const rightShoulder = landmarks[12];
+      const leftHip = landmarks[23];
+      const rightHip = landmarks[24];
+
+      // All torso landmarks must be visible for structure validation
+      if (!leftShoulder || !rightShoulder || !leftHip || !rightHip ||
+          leftShoulder.visibility < 0.5 || rightShoulder.visibility < 0.5 ||
+          leftHip.visibility < 0.5 || rightHip.visibility < 0.5) {
+        return false;
+      }
+
+      // Validate reasonable body proportions
+      const shoulderDistance = Math.abs(leftShoulder.x - rightShoulder.x);
+      const hipDistance = Math.abs(leftHip.x - rightHip.x);
+      const torsoHeight = Math.abs((leftShoulder.y + rightShoulder.y) / 2 - (leftHip.y + rightHip.y) / 2);
+
+      // Check if landmarks form reasonable human proportions
+      if (shoulderDistance < 0.05 || shoulderDistance > 0.5) return false;
+      if (hipDistance < 0.05 || hipDistance > 0.5) return false;
+      if (torsoHeight < 0.1 || torsoHeight > 0.6) return false;
+
+      // Validate shoulders are above hips (normal human posture)
+      const avgShoulderY = (leftShoulder.y + rightShoulder.y) / 2;
+      const avgHipY = (leftHip.y + rightHip.y) / 2;
+      if (avgShoulderY > avgHipY) return false; // Shoulders should be above hips
+
+      // Check landmark distribution to avoid clustered random points
+      const allVisibleLandmarks = landmarks.filter(lm => lm && lm.visibility > 0.3);
+      if (allVisibleLandmarks.length < 10) return false;
+
+      // Calculate bounding box of visible landmarks
+      const xCoords = allVisibleLandmarks.map(lm => lm.x);
+      const yCoords = allVisibleLandmarks.map(lm => lm.y);
+      const xRange = Math.max(...xCoords) - Math.min(...xCoords);
+      const yRange = Math.max(...yCoords) - Math.min(...yCoords);
+
+      // Require reasonable spatial distribution (not all clustered in tiny area)
+      if (xRange < 0.1 || yRange < 0.2) return false;
+
+      return true;
+    };
 
     const initializePose = async () => {
       try {
@@ -230,9 +307,20 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
+      // Comprehensive person detection validation before drawing
+      if (!validatePersonPresence(results.poseLandmarks)) {
+        // Clear canvas if no valid person detected
+        const rect = videoElement.getBoundingClientRect();
+        canvas.width = rect.width;
+        canvas.height = rect.height;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        return;
+      }
+
       // Detect mobile device for enhanced coordinate handling
       const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
       const devicePixelRatio = window.devicePixelRatio || 1;
+      const isProduction = import.meta.env.PROD || false;
       
       // Set canvas size to match displayed video dimensions with proper mobile handling
       const rect = videoElement.getBoundingClientRect();
@@ -270,7 +358,7 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       // Transform normalized coordinates to canvas coordinates with production compatibility
       const transformLandmark = (landmark: any) => {
         // Production environment detection
-        const isProduction = import.meta.env.PROD;
+        const isProduction = import.meta.env.PROD || false;
         
         // Get actual video dimensions with fallback for production
         let actualVideoWidth = videoElement.videoWidth;

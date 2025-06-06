@@ -1,0 +1,44 @@
+Fix MediaPipe false positive skeleton detection - prevent imaginary skeletons when no person present
+PHANTOM SKELETON DETECTION ISSUE:
+
+Skeleton landmarks appear when no person is in frame on certain camera/orientation combinations
+Front camera portrait mode shows imaginary skeleton when empty
+Back camera shows imaginary skeletons in both portrait and landscape when empty
+Individual landmark visibility checks are insufficient for person detection validation
+
+ADD ROBUST PERSON DETECTION VALIDATION:
+
+Implement comprehensive person detection check before drawing any landmarks or connections
+Require minimum number of key body landmarks to be simultaneously visible (at least 6-8 key points)
+Add landmark coherence validation to ensure landmarks form reasonable human body structure
+Check that landmarks are distributed across expected body regions not clustered randomly
+
+ENHANCE LANDMARK VALIDATION LOGIC:
+
+Require core body landmarks (shoulders, hips, major joints) to be detected together
+Add positional relationship validation between key landmarks (shoulders above hips, reasonable distances)
+Implement landmark cluster analysis to detect if points form coherent human pose vs random scattered points
+Add minimum confidence threshold for overall pose detection not just individual landmarks
+
+CAMERA-SPECIFIC DETECTION ADJUSTMENTS:
+
+Add different confidence thresholds for front vs back camera due to lighting differences
+Implement orientation-specific validation since portrait vs landscape may have different detection patterns
+Add background stability check to avoid false detections from shadows or objects
+Consider environmental factors that might cause phantom detections
+
+IMPROVE DRAWING CONDITIONAL LOGIC:
+
+Only draw landmarks and connections if comprehensive person validation passes
+Add early return if insufficient key landmarks detected
+Implement pose coherence score calculation before rendering
+Ensure consistent person detection logic across all camera and orientation combinations
+
+ADD DETECTION QUALITY VALIDATION:
+
+Calculate pose coherence score based on landmark relationships and positions
+Require minimum body coverage percentage before drawing skeleton
+Add temporal consistency check to avoid single-frame false positives
+Implement landmark position reasonableness validation
+
+RESULT: Eliminate phantom skeleton appearances when no person is present while maintaining accurate detection when person is in frame across all camera and orientation combinations.

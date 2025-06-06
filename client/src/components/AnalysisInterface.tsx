@@ -22,6 +22,8 @@ export default function AnalysisInterface({
   onStopAnalysis 
 }: AnalysisInterfaceProps) {
   const [videoElement, setVideoElement] = useState<HTMLVideoElement | null>(null);
+  const [availableCameras, setAvailableCameras] = useState<MediaDeviceInfo[]>([]);
+  const [currentCameraId, setCurrentCameraId] = useState<string>('');
   
   // Set default camera orientation based on exercise type
   const getDefaultOrientation = (exercise: Exercise) => {
@@ -37,6 +39,31 @@ export default function AnalysisInterface({
   };
   
   const [isPortraitMode, setIsPortraitMode] = useState(getDefaultOrientation(selectedExercise));
+
+  // Get available cameras on component mount
+  useEffect(() => {
+    const getCameraDevices = async () => {
+      try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const videoDevices = devices.filter(device => device.kind === 'videoinput');
+        setAvailableCameras(videoDevices);
+        
+        // Set default camera (prefer front camera)
+        if (videoDevices.length > 0 && !currentCameraId) {
+          const frontCamera = videoDevices.find(device => 
+            device.label.toLowerCase().includes('front') || 
+            device.label.toLowerCase().includes('user')
+          );
+          const defaultCamera = frontCamera || videoDevices[0];
+          setCurrentCameraId(defaultCamera.deviceId);
+        }
+      } catch (err) {
+        console.error('Error enumerating devices:', err);
+      }
+    };
+
+    getCameraDevices();
+  }, [currentCameraId]);
   
   // Update camera orientation when exercise changes
   useEffect(() => {
@@ -61,14 +88,58 @@ export default function AnalysisInterface({
         
         {/* Camera Feed Section */}
         <div className="space-y-6">
-          <div className="flex justify-between items-center mb-6">
-            <h3 className="text-2xl font-bold text-white">Live Camera Feed</h3>
-            <button
-              onClick={() => setIsPortraitMode(!isPortraitMode)}
-              className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
-            >
-              {isPortraitMode ? '📱 Portrait' : '💻 Landscape'}
-            </button>
+          <div className="mb-6">
+            <h3 className="text-2xl font-bold text-white mb-4">Live Camera Feed</h3>
+            
+            {/* Camera Controls Row */}
+            <div className="flex flex-col sm:flex-row gap-4 mb-4">
+              {/* Orientation Controls */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => setIsPortraitMode(true)}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                    isPortraitMode 
+                      ? 'bg-blue-600 text-white border-blue-500' 
+                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
+                  }`}
+                >
+                  Portrait
+                </button>
+                <button
+                  onClick={() => setIsPortraitMode(false)}
+                  className={`px-4 py-2 rounded-lg border transition-colors ${
+                    !isPortraitMode 
+                      ? 'bg-blue-600 text-white border-blue-500' 
+                      : 'bg-slate-700/50 hover:bg-slate-600/50 text-white border-slate-600/50'
+                  }`}
+                >
+                  Landscape
+                </button>
+              </div>
+
+              {/* Camera Selection Controls */}
+              <div className="flex gap-2">
+                <button
+                  onClick={() => {/* Front camera logic */}}
+                  className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
+                >
+                  Front Cam
+                </button>
+                <button
+                  onClick={() => {/* Back camera logic */}}
+                  className="bg-slate-700/50 hover:bg-slate-600/50 text-white px-4 py-2 rounded-lg border border-slate-600/50 transition-colors"
+                >
+                  Back Cam
+                </button>
+              </div>
+            </div>
+
+            {/* Exercise-specific Guidance */}
+            <div className="text-sm text-slate-400 mb-2">
+              💡 {selectedExercise === 'squat' 
+                ? 'Portrait mode + front camera works best' 
+                : 'Landscape mode + back camera recommended'}
+            </div>
           </div>
           <div className="relative">
             <CameraView 

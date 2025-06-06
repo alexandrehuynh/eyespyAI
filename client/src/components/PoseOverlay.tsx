@@ -239,14 +239,26 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       const displayWidth = rect.width;
       const displayHeight = rect.height;
       
-      // For mobile devices, account for device pixel ratio
+      // Enhanced mobile device handling with production compatibility
       if (isMobile) {
-        canvas.width = displayWidth * devicePixelRatio;
-        canvas.height = displayHeight * devicePixelRatio;
-        canvas.style.width = `${displayWidth}px`;
-        canvas.style.height = `${displayHeight}px`;
-        ctx.scale(devicePixelRatio, devicePixelRatio);
-        console.log('Mobile device detected - DPR:', devicePixelRatio, 'Canvas size:', canvas.width, 'x', canvas.height);
+        // Clamp device pixel ratio for production stability
+        const safeDPR = Math.min(Math.max(devicePixelRatio, 1), 3);
+        
+        try {
+          canvas.width = displayWidth * safeDPR;
+          canvas.height = displayHeight * safeDPR;
+          canvas.style.width = `${displayWidth}px`;
+          canvas.style.height = `${displayHeight}px`;
+          ctx.scale(safeDPR, safeDPR);
+          
+          if (isProduction && Math.random() < 0.01) {
+            console.log('PROD Mobile - DPR:', safeDPR, 'Canvas:', canvas.width, 'x', canvas.height);
+          }
+        } catch (error) {
+          console.warn('Canvas scaling failed, using direct dimensions:', error);
+          canvas.width = displayWidth;
+          canvas.height = displayHeight;
+        }
       } else {
         canvas.width = displayWidth;
         canvas.height = displayHeight;
@@ -255,69 +267,108 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Transform normalized coordinates to canvas coordinates with proper mobile support
+      // Transform normalized coordinates to canvas coordinates with production compatibility
       const transformLandmark = (landmark: any) => {
-        // Get actual video dimensions from the stream
-        const actualVideoWidth = videoElement.videoWidth;
-        const actualVideoHeight = videoElement.videoHeight;
+        // Production environment detection
+        const isProduction = import.meta.env.PROD;
+        
+        // Get actual video dimensions with fallback for production
+        let actualVideoWidth = videoElement.videoWidth;
+        let actualVideoHeight = videoElement.videoHeight;
+        
+        // Production fallback if videoWidth/Height are 0
+        if (!actualVideoWidth || !actualVideoHeight) {
+          console.warn('Video dimensions not available, using fallback detection');
+          // Use common mobile camera resolutions as fallback
+          actualVideoWidth = 1280;
+          actualVideoHeight = 720;
+        }
+        
         const actualVideoAspectRatio = actualVideoWidth / actualVideoHeight;
         
-        // Get displayed video element dimensions
+        // Get displayed video element dimensions with robust detection
         const videoRect = videoElement.getBoundingClientRect();
-        const displayedWidth = videoRect.width;
-        const displayedHeight = videoRect.height;
+        let displayedWidth = videoRect.width;
+        let displayedHeight = videoRect.height;
+        
+        // Fallback for production if getBoundingClientRect fails
+        if (!displayedWidth || !displayedHeight) {
+          displayedWidth = videoElement.offsetWidth || canvas.width;
+          displayedHeight = videoElement.offsetHeight || canvas.height;
+          console.warn('Using fallback dimensions:', displayedWidth, 'x', displayedHeight);
+        }
+        
         const displayedAspectRatio = displayedWidth / displayedHeight;
         
-        // Get canvas dimensions (use display dimensions for coordinate calculation)
-        const canvasWidth = isMobile ? displayWidth : canvas.width;
-        const canvasHeight = isMobile ? displayHeight : canvas.height;
+        // Enhanced canvas dimension detection for production
+        let canvasWidth, canvasHeight;
+        
+        if (isMobile && isProduction) {
+          // Production mobile: Use computed styles for more reliable dimensions
+          const computedStyle = window.getComputedStyle(canvas);
+          canvasWidth = parseFloat(computedStyle.width) || displayedWidth;
+          canvasHeight = parseFloat(computedStyle.height) || displayedHeight;
+        } else if (isMobile) {
+          canvasWidth = displayedWidth;
+          canvasHeight = displayedHeight;
+        } else {
+          canvasWidth = canvas.width;
+          canvasHeight = canvas.height;
+        }
+        
         const canvasAspectRatio = canvasWidth / canvasHeight;
         
-        // Debug logging (reduced frequency)
-        if (Math.random() < 0.1) { // Log only 10% of frames
-          console.log('Video AR:', actualVideoAspectRatio.toFixed(3), 'Canvas AR:', canvasAspectRatio.toFixed(3), 'Mobile:', isMobile);
+        // Production-specific debugging with environment context
+        if (isProduction && Math.random() < 0.02) { // Reduced logging in production
+          console.log('PROD - Video:', actualVideoWidth, 'x', actualVideoHeight, 'AR:', actualVideoAspectRatio.toFixed(3));
+          console.log('PROD - Canvas:', canvasWidth, 'x', canvasHeight, 'AR:', canvasAspectRatio.toFixed(3));
+          console.log('PROD - Mobile:', isMobile, 'DPR:', devicePixelRatio);
+        } else if (!isProduction && Math.random() < 0.1) {
+          console.log('DEV - Video AR:', actualVideoAspectRatio.toFixed(3), 'Canvas AR:', canvasAspectRatio.toFixed(3));
         }
         
         let x = landmark.x;
         let y = landmark.y;
 
-        // Determine if video is being cropped or letterboxed based on aspect ratios
-        if (actualVideoAspectRatio > canvasAspectRatio) {
-          // Video is wider than canvas - video is cropped horizontally (left/right sides cut off)
+        // Enhanced coordinate transformation with production fallbacks
+        const aspectRatioDiff = Math.abs(actualVideoAspectRatio - canvasAspectRatio);
+        
+        // Production fallback: if aspect ratio calculation seems invalid, use simpler mapping
+        if (isProduction && (aspectRatioDiff > 10 || !isFinite(actualVideoAspectRatio) || !isFinite(canvasAspectRatio))) {
+          console.warn('PROD - Invalid aspect ratios detected, using direct coordinate mapping');
+          // Direct coordinate mapping as fallback
+          x = landmark.x;
+          y = landmark.y;
+        } else if (actualVideoAspectRatio > canvasAspectRatio) {
+          // Video is wider than canvas - video is cropped horizontally
           const visibleWidthFraction = canvasAspectRatio / actualVideoAspectRatio;
           const cropFromEachSide = (1 - visibleWidthFraction) / 2;
           
-          if (Math.random() < 0.05) { // Reduced logging
-            console.log('Horizontal crop - visible fraction:', visibleWidthFraction.toFixed(3), 'crop from sides:', cropFromEachSide.toFixed(3));
-          }
-          
-          // Transform x-coordinate to account for horizontal cropping
-          if (landmark.x >= cropFromEachSide && landmark.x <= (1 - cropFromEachSide)) {
+          // Enhanced bounds checking for production
+          if (isProduction && (cropFromEachSide < 0 || cropFromEachSide > 0.5)) {
+            console.warn('PROD - Invalid crop calculation, using direct mapping');
+            x = landmark.x;
+          } else if (landmark.x >= cropFromEachSide && landmark.x <= (1 - cropFromEachSide)) {
             x = (landmark.x - cropFromEachSide) / visibleWidthFraction;
           } else {
             x = landmark.x < cropFromEachSide ? 0 : 1;
           }
-          // Y coordinate maps directly
           
         } else if (actualVideoAspectRatio < canvasAspectRatio) {
-          // Video is taller than canvas - video is letterboxed vertically (top/bottom bars)
+          // Video is taller than canvas - video is letterboxed vertically
           const visibleHeightFraction = actualVideoAspectRatio / canvasAspectRatio;
           const letterboxFromTopBottom = (1 - visibleHeightFraction) / 2;
           
-          if (Math.random() < 0.05) { // Reduced logging
-            console.log('Vertical letterbox - visible fraction:', visibleHeightFraction.toFixed(3), 'letterbox from top/bottom:', letterboxFromTopBottom.toFixed(3));
-          }
-          
-          // Transform y-coordinate to account for vertical letterboxing
-          if (landmark.y >= letterboxFromTopBottom && landmark.y <= (1 - letterboxFromTopBottom)) {
+          // Enhanced bounds checking for production
+          if (isProduction && (letterboxFromTopBottom < 0 || letterboxFromTopBottom > 0.5)) {
+            console.warn('PROD - Invalid letterbox calculation, using direct mapping');
+            y = landmark.y;
+          } else if (landmark.y >= letterboxFromTopBottom && landmark.y <= (1 - letterboxFromTopBottom)) {
             y = (landmark.y - letterboxFromTopBottom) / visibleHeightFraction;
           } else {
             y = landmark.y < letterboxFromTopBottom ? 0 : 1;
           }
-          // X coordinate maps directly
-          
         }
-        // If aspect ratios match exactly, no transformation needed
 
         return {
           x: x * canvasWidth,

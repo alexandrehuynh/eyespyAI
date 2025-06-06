@@ -1,5 +1,5 @@
 import { useRef, useEffect } from "react";
-import { Results } from "@mediapipe/pose";
+import { Pose, Results } from "@mediapipe/pose";
 
 interface PoseOverlayProps {
   videoElement: HTMLVideoElement | null;
@@ -79,11 +79,11 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
 
     const initializePose = async () => {
       try {
-        // Dynamically import MediaPipe Pose
-        const { Pose } = await import('@mediapipe/pose');
+        console.log('Initializing MediaPipe Pose with static import...');
         
         const pose = new Pose({
           locateFile: (file) => {
+            console.log(`Loading MediaPipe file: ${file}`);
             return `https://cdn.jsdelivr.net/npm/@mediapipe/pose/${file}`;
           }
         });
@@ -104,10 +104,50 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
           }
         });
 
+        console.log('MediaPipe Pose initialized successfully');
         poseRef.current = pose;
         processFrame();
       } catch (error) {
         console.error('Error initializing MediaPipe Pose:', error);
+        const errorObj = error as Error;
+        console.error('Error details:', {
+          message: errorObj.message || 'Unknown error',
+          stack: errorObj.stack || 'No stack trace',
+          name: errorObj.name || 'Unknown error type'
+        });
+        
+        // Try alternative initialization approach
+        try {
+          console.log('Attempting alternative MediaPipe initialization...');
+          const pose = new Pose({
+            locateFile: (file) => {
+              // Use exact version for better reliability
+              return `https://cdn.jsdelivr.net/npm/@mediapipe/pose@0.5.1635989137/${file}`;
+            }
+          });
+          
+          pose.setOptions({
+            modelComplexity: 0, // Lower complexity for better compatibility
+            smoothLandmarks: true,
+            enableSegmentation: false,
+            smoothSegmentation: false,
+            minDetectionConfidence: 0.3,
+            minTrackingConfidence: 0.3
+          });
+
+          pose.onResults((results: Results) => {
+            drawPose(results);
+            if (onPoseResults) {
+              onPoseResults(results);
+            }
+          });
+
+          console.log('Alternative MediaPipe Pose initialized successfully');
+          poseRef.current = pose;
+          processFrame();
+        } catch (fallbackError) {
+          console.error('Alternative MediaPipe initialization also failed:', fallbackError);
+        }
       }
     };
 

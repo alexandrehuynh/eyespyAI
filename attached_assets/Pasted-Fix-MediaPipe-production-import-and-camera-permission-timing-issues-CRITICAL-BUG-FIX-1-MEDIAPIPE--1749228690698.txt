@@ -1,0 +1,45 @@
+Fix MediaPipe production import and camera permission timing issues
+
+CRITICAL BUG FIX 1 - MEDIAPIPE PRODUCTION IMPORT:
+
+REPLACE DYNAMIC IMPORT WITH STATIC IMPORT:
+- Remove: const { Pose } = await import('@mediapipe/pose');
+- Replace with: import { Pose } from '@mediapipe/pose'; at top of PoseOverlay.tsx file
+- Move Pose initialization inside useEffect but remove dynamic import
+- Wrap Pose constructor in try-catch with detailed error logging
+
+ENSURE CONSISTENT ASSET LOADING:
+- Verify all MediaPipe assets load from same source (CDN vs local)
+- Add error handling for asset loading failures
+- Consider using exact version numbers instead of latest
+
+ALTERNATIVE APPROACH IF STATIC IMPORT FAILS:
+- Try: const mediapipe = await import('@mediapipe/pose'); then const pose = new mediapipe.Pose(...)
+- Or: Use require() instead of import() for better build compatibility
+
+CRITICAL BUG FIX 2 - CAMERA PERMISSION TIMING:
+
+MOVE CAMERA ENUMERATION AFTER PERMISSIONS:
+- Remove camera enumeration useEffect from AnalysisInterface.tsx component mount
+- Move enumerateDevices() call to AFTER getUserMedia() succeeds in CameraView.tsx
+- Add callback from CameraView to AnalysisInterface to update available cameras
+- Set initial currentCameraId to empty string, populate after camera starts
+
+UPDATE CAMERAVIEW TO HANDLE ENUMERATION:
+- Add onCamerasEnumerated prop to CameraView interface
+- After successful getUserMedia, call enumerateDevices() and notify parent
+- Pass available cameras back to AnalysisInterface through callback
+- Handle case where no cameras found gracefully
+
+FIX CAMERA SWITCHING FLOW:
+- Ensure camera list is populated before toggle buttons work
+- Add loading state for camera enumeration
+- Disable toggle button until cameras are enumerated
+- Default to front camera initially, then populate full list
+
+COMPREHENSIVE ERROR HANDLING:
+- Add detailed logging for both MediaPipe and camera issues
+- Show user-friendly error messages for each failure type
+- Graceful degradation if either system fails
+
+RESULT: Fix both the MediaPipe "c is not a constructor" production error AND the camera permission timing issue that causes back camera toggle to fail initially.

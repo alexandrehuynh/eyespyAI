@@ -230,48 +230,98 @@ export default function PoseOverlay({ videoElement, isActive, onPoseResults, isP
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Set canvas size to match displayed video dimensions
+      // Detect mobile device for enhanced coordinate handling
+      const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+      const devicePixelRatio = window.devicePixelRatio || 1;
+      
+      // Set canvas size to match displayed video dimensions with proper mobile handling
       const rect = videoElement.getBoundingClientRect();
-      canvas.width = rect.width;
-      canvas.height = rect.height;
+      const displayWidth = rect.width;
+      const displayHeight = rect.height;
+      
+      // For mobile devices, account for device pixel ratio
+      if (isMobile) {
+        canvas.width = displayWidth * devicePixelRatio;
+        canvas.height = displayHeight * devicePixelRatio;
+        canvas.style.width = `${displayWidth}px`;
+        canvas.style.height = `${displayHeight}px`;
+        ctx.scale(devicePixelRatio, devicePixelRatio);
+        console.log('Mobile device detected - DPR:', devicePixelRatio, 'Canvas size:', canvas.width, 'x', canvas.height);
+      } else {
+        canvas.width = displayWidth;
+        canvas.height = displayHeight;
+      }
 
       // Clear canvas
       ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-      // Transform normalized coordinates to canvas coordinates
+      // Transform normalized coordinates to canvas coordinates with proper mobile support
       const transformLandmark = (landmark: any) => {
+        // Get actual video dimensions from the stream
+        const actualVideoWidth = videoElement.videoWidth;
+        const actualVideoHeight = videoElement.videoHeight;
+        const actualVideoAspectRatio = actualVideoWidth / actualVideoHeight;
+        
+        // Get displayed video element dimensions
+        const videoRect = videoElement.getBoundingClientRect();
+        const displayedWidth = videoRect.width;
+        const displayedHeight = videoRect.height;
+        const displayedAspectRatio = displayedWidth / displayedHeight;
+        
+        // Get canvas dimensions (use display dimensions for coordinate calculation)
+        const canvasWidth = isMobile ? displayWidth : canvas.width;
+        const canvasHeight = isMobile ? displayHeight : canvas.height;
+        const canvasAspectRatio = canvasWidth / canvasHeight;
+        
+        // Debug logging (reduced frequency)
+        if (Math.random() < 0.1) { // Log only 10% of frames
+          console.log('Video AR:', actualVideoAspectRatio.toFixed(3), 'Canvas AR:', canvasAspectRatio.toFixed(3), 'Mobile:', isMobile);
+        }
+        
         let x = landmark.x;
         let y = landmark.y;
 
-        if (isPortraitMode) {
-          // Portrait mode: 16:9 video (1.777...) displayed in 3:4 container (0.75)
-          // Since 16:9 > 3:4, the video is cropped horizontally (left and right sides cut off)
-          const videoAspectRatio = 16 / 9; // ~1.777
-          const containerAspectRatio = 3 / 4; // 0.75
+        // Determine if video is being cropped or letterboxed based on aspect ratios
+        if (actualVideoAspectRatio > canvasAspectRatio) {
+          // Video is wider than canvas - video is cropped horizontally (left/right sides cut off)
+          const visibleWidthFraction = canvasAspectRatio / actualVideoAspectRatio;
+          const cropFromEachSide = (1 - visibleWidthFraction) / 2;
           
-          // Calculate what fraction of the video width is visible
-          const visibleWidthFraction = containerAspectRatio / videoAspectRatio; // ~0.4219
-          
-          // Calculate how much is cropped from each side
-          const cropFromEachSide = (1 - visibleWidthFraction) / 2; // ~0.2891
-          
-          // Transform x-coordinate: map from full video (0-1) to visible portion
-          // If landmark.x is in the visible range (cropFromEachSide to 1-cropFromEachSide)
-          if (landmark.x >= cropFromEachSide && landmark.x <= (1 - cropFromEachSide)) {
-            // Remap to 0-1 range for the visible portion
-            x = (landmark.x - cropFromEachSide) / visibleWidthFraction;
-          } else {
-            // Landmark is in cropped area - clamp to edges
-            x = landmark.x < cropFromEachSide ? 0 : 1;
+          if (Math.random() < 0.05) { // Reduced logging
+            console.log('Horizontal crop - visible fraction:', visibleWidthFraction.toFixed(3), 'crop from sides:', cropFromEachSide.toFixed(3));
           }
           
-          // Y coordinate doesn't change since height is preserved
-          // y remains as landmark.y
+          // Transform x-coordinate to account for horizontal cropping
+          if (landmark.x >= cropFromEachSide && landmark.x <= (1 - cropFromEachSide)) {
+            x = (landmark.x - cropFromEachSide) / visibleWidthFraction;
+          } else {
+            x = landmark.x < cropFromEachSide ? 0 : 1;
+          }
+          // Y coordinate maps directly
+          
+        } else if (actualVideoAspectRatio < canvasAspectRatio) {
+          // Video is taller than canvas - video is letterboxed vertically (top/bottom bars)
+          const visibleHeightFraction = actualVideoAspectRatio / canvasAspectRatio;
+          const letterboxFromTopBottom = (1 - visibleHeightFraction) / 2;
+          
+          if (Math.random() < 0.05) { // Reduced logging
+            console.log('Vertical letterbox - visible fraction:', visibleHeightFraction.toFixed(3), 'letterbox from top/bottom:', letterboxFromTopBottom.toFixed(3));
+          }
+          
+          // Transform y-coordinate to account for vertical letterboxing
+          if (landmark.y >= letterboxFromTopBottom && landmark.y <= (1 - letterboxFromTopBottom)) {
+            y = (landmark.y - letterboxFromTopBottom) / visibleHeightFraction;
+          } else {
+            y = landmark.y < letterboxFromTopBottom ? 0 : 1;
+          }
+          // X coordinate maps directly
+          
         }
+        // If aspect ratios match exactly, no transformation needed
 
         return {
-          x: x * canvas.width,
-          y: y * canvas.height,
+          x: x * canvasWidth,
+          y: y * canvasHeight,
           visibility: landmark.visibility
         };
       };

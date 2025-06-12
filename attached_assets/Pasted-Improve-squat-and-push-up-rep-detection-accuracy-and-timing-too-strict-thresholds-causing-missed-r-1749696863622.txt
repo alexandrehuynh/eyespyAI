@@ -1,0 +1,37 @@
+Improve squat and push-up rep detection accuracy and timing - too strict thresholds causing missed reps
+
+REP COUNTING ISSUES FOR BOTH EXERCISES:
+- Rep detection thresholds too restrictive causing missed valid reps
+- Reps counted at wrong timing during transitions instead of movement completion
+- Position stability requirements too strict for natural movement variations
+- Height-based detection unreliable across different camera angles and positions
+
+IMPROVE SQUAT REP DETECTION LOGIC:
+- Relax knee angle thresholds from current restrictive ranges to more realistic values
+- Replace hip height dependency with knee position relative to ankle for camera angle independence
+- Use knee-to-hip angle changes as primary detection method instead of absolute heights
+- Add movement velocity tracking to detect direction changes for proper timing
+- Count reps at movement completion points not during transitions
+- Extend position stability frames for more reliable detection while allowing natural movement
+
+IMPROVE PUSH-UP REP DETECTION LOGIC:
+- Relax elbow angle thresholds from current restrictive ranges to more realistic values
+- Replace shoulder height dependency with elbow position relative to shoulder for camera angle independence
+- Use shoulder-to-elbow angle changes as primary detection method instead of absolute heights
+- Add movement velocity tracking to detect direction changes for proper timing
+- Apply same completion-point counting logic as improved squat detection
+
+UNIVERSAL REP COUNTING IMPROVEMENTS:
+- Add movement velocity detection to identify when person stops moving in each direction
+- Implement smoother state transitions with hysteresis to prevent false triggers
+- Require minimum movement range before counting rep but make ranges more realistic
+- Add maximum time limits for each phase to prevent position holding
+- Fix timing so reps count at proper completion not during movement transitions
+
+ENHANCED MOVEMENT VALIDATION:
+- Replace absolute measurements with relative joint positioning for camera angle flexibility
+- Use joint angle changes and distances for more reliable detection across positions
+- Ensure consistent movement validation logic between squat and push-up exercises
+- Add proper movement direction detection using angle velocity changes
+
+RESULT: More accurate and responsive rep detection for both squat and push-up exercises with proper timing and realistic thresholds while maintaining form quality standards.

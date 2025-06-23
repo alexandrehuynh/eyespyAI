@@ -77,13 +77,15 @@ export class MemStorage implements IStorage {
   async createSession(session: InsertExerciseSession): Promise<ExerciseSession> {
     const id = this.currentSessionId++;
     const exerciseSession: ExerciseSession = {
-      ...session,
       id,
+      userId: session.userId,
+      exerciseType: session.exerciseType,
       startTime: new Date(),
       endTime: null,
       duration: null,
       totalReps: 0,
       averageFormScore: null,
+      cameraOrientation: session.cameraOrientation || null,
     };
     this.sessions.set(id, exerciseSession);
     return exerciseSession;
@@ -113,9 +115,15 @@ export class MemStorage implements IStorage {
   async createMetric(metric: InsertExerciseMetric): Promise<ExerciseMetric> {
     const id = this.currentMetricId++;
     const exerciseMetric: ExerciseMetric = {
-      ...metric,
       id,
+      sessionId: metric.sessionId,
       timestamp: new Date(),
+      repNumber: metric.repNumber || null,
+      formScore: metric.formScore,
+      kneeAngle: metric.kneeAngle || null,
+      elbowAngle: metric.elbowAngle || null,
+      bodyLineAngle: metric.bodyLineAngle || null,
+      detectionQuality: metric.detectionQuality || null,
     };
     this.metrics.set(id, exerciseMetric);
     return exerciseMetric;

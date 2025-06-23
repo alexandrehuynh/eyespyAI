@@ -1,8 +1,10 @@
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Exercise } from "@/pages/home";
 import CameraView from "@/components/CameraView";
 import { usePoseDetection } from "@/hooks/usePoseDetection";
 import { Results } from "@mediapipe/pose";
+import { exerciseApi } from "@/services/exerciseApi";
+import type { InsertExerciseMetric } from "@shared/schema";
 
 interface AnalysisInterfaceProps {
   selectedExercise: Exercise;

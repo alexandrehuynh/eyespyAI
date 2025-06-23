@@ -1,6 +1,7 @@
 import type { Express } from "express";
 import { createServer, type Server } from "http";
 import { storage } from "./storage";
+import { requireAuth } from "./auth";
 import { 
   insertExerciseSessionSchema, 
   insertExerciseMetricSchema,
@@ -14,9 +15,14 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Exercise Session Routes
   
   // POST /api/exercise/session/start - Start new exercise session
-  app.post("/api/exercise/session/start", async (req, res) => {
+  app.post("/api/exercise/session/start", requireAuth, async (req: any, res) => {
     try {
-      const sessionData = insertExerciseSessionSchema.parse(req.body);
+      const { exerciseType, cameraOrientation } = req.body;
+      const sessionData = {
+        userId: req.session.userId,
+        exerciseType,
+        cameraOrientation
+      };
       const session = await storage.createSession(sessionData);
       
       res.json({ 
@@ -36,10 +42,19 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // PUT /api/exercise/session/:id/end - End exercise session
-  app.put("/api/exercise/session/:id/end", async (req, res) => {
+  app.put("/api/exercise/session/:id/end", requireAuth, async (req: any, res) => {
     try {
       const sessionId = parseInt(req.params.id);
       const { duration, totalReps, averageFormScore } = req.body;
+      
+      // Verify session belongs to authenticated user
+      const session = await storage.getSession(sessionId);
+      if (!session || session.userId !== req.session.userId) {
+        return res.status(404).json({ 
+          success: false, 
+          error: "Session not found" 
+        });
+      }
       
       const updatedSession = await storage.updateSession(sessionId, {
         endTime: new Date(),
@@ -56,9 +71,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
 
       // Update user progress
-      if (updatedSession.exerciseType && updatedSession.userId) {
+      if (updatedSession.exerciseType) {
         const existingProgress = await storage.getUserProgress(
-          updatedSession.userId, 
+          req.session.userId, 
           updatedSession.exerciseType
         );
         
@@ -75,7 +90,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
         };
 
         await storage.updateUserProgress(
-          updatedSession.userId, 
+          req.session.userId, 
           updatedSession.exerciseType, 
           progressUpdates
         );
@@ -91,13 +106,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
     }
   });
 
-  // GET /api/exercise/sessions/:userId - Get user's exercise sessions
-  app.get("/api/exercise/sessions/:userId", async (req, res) => {
+  // GET /api/exercise/sessions - Get current user's exercise sessions
+  app.get("/api/exercise/sessions", requireAuth, async (req: any, res) => {
     try {
-      const userId = parseInt(req.params.userId);
       const limit = req.query.limit ? parseInt(req.query.limit as string) : 10;
       
-      const sessions = await storage.getUserSessions(userId, limit);
+      const sessions = await storage.getUserSessions(req.session.userId, limit);
       res.json({ success: true, data: sessions });
     } catch (error) {
       console.error("Error fetching sessions:", error);
@@ -111,11 +125,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   // Exercise Metrics Routes
   
   // POST /api/exercise/metrics - Record single exercise metric
-  app.post("/api/exercise/metrics", async (req, res) => {
+  app.post("/api/exercise/metrics", requireAuth, async (req: any, res) => {
     try {
       const metricData = insertExerciseMetricSchema.parse(req.body);
-      const metric = await storage.createMetric(metricData);
       
+      // Verify session belongs to authenticated user
+      const session = await storage.getSession(metricData.sessionId);
+      if (!session || session.userId !== req.session.userId) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Access denied" 
+        });
+      }
+      
+      const metric = await storage.createMetric(metricData);
       res.json({ success: true, data: metric });
     } catch (error) {
       console.error("Error creating metric:", error);
@@ -127,7 +150,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // POST /api/exercise/metrics/batch - Record multiple metrics efficiently
-  app.post("/api/exercise/metrics/batch", async (req, res) => {
+  app.post("/api/exercise/metrics/batch", requireAuth, async (req: any, res) => {
     try {
       const { metrics } = req.body;
       if (!Array.isArray(metrics)) {
@@ -141,6 +164,17 @@ export async function registerRoutes(app: Express): Promise<Server> {
         insertExerciseMetricSchema.parse(metric)
       );
       
+      // Verify all sessions belong to authenticated user
+      for (const metric of validatedMetrics) {
+        const session = await storage.getSession(metric.sessionId);
+        if (!session || session.userId !== req.session.userId) {
+          return res.status(403).json({ 
+            success: false, 
+            error: "Access denied" 
+          });
+        }
+      }
+      
       const savedMetrics = await storage.createMetricsBatch(validatedMetrics);
       res.json({ success: true, data: savedMetrics });
     } catch (error) {
@@ -153,11 +187,20 @@ export async function registerRoutes(app: Express): Promise<Server> {
   });
 
   // GET /api/exercise/metrics/:sessionId - Get session metrics
-  app.get("/api/exercise/metrics/:sessionId", async (req, res) => {
+  app.get("/api/exercise/metrics/:sessionId", requireAuth, async (req: any, res) => {
     try {
       const sessionId = parseInt(req.params.sessionId);
-      const metrics = await storage.getSessionMetrics(sessionId);
       
+      // Verify session belongs to authenticated user
+      const session = await storage.getSession(sessionId);
+      if (!session || session.userId !== req.session.userId) {
+        return res.status(403).json({ 
+          success: false, 
+          error: "Access denied" 
+        });
+      }
+      
+      const metrics = await storage.getSessionMetrics(sessionId);
       res.json({ success: true, data: metrics });
     } catch (error) {
       console.error("Error fetching metrics:", error);
@@ -170,13 +213,12 @@ export async function registerRoutes(app: Express): Promise<Server> {
 
   // User Progress Routes
   
-  // GET /api/exercise/progress/:userId - Get user progress
-  app.get("/api/exercise/progress/:userId", async (req, res) => {
+  // GET /api/exercise/progress - Get current user's progress
+  app.get("/api/exercise/progress", requireAuth, async (req: any, res) => {
     try {
-      const userId = parseInt(req.params.userId);
       const exerciseType = req.query.exerciseType as string;
       
-      const progress = await storage.getUserProgress(userId, exerciseType);
+      const progress = await storage.getUserProgress(req.session.userId, exerciseType);
       res.json({ success: true, data: progress });
     } catch (error) {
       console.error("Error fetching progress:", error);

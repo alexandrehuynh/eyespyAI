@@ -1,7 +1,23 @@
-import type { Express } from "express";
+import type { Express, Request } from "express";
 import bcrypt from "bcrypt";
 import { storage } from "./storage";
 import { insertUserSchema } from "@shared/schema";
+
+// Extend session interface to include user data
+declare module 'express-session' {
+  interface SessionData {
+    userId: number;
+    username: string;
+  }
+}
+
+interface AuthenticatedRequest extends Request {
+  session: {
+    userId: number;
+    username: string;
+    destroy: (callback: (err: any) => void) => void;
+  } & any;
+}
 
 export function registerAuthRoutes(app: Express) {
   // POST /api/auth/register - User registration with password hashing

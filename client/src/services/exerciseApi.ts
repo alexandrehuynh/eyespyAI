@@ -38,7 +38,6 @@ export interface ApiResponse<T> {
 }
 
 export interface SessionStartRequest {
-  userId: number;
   exerciseType: string;
   cameraOrientation?: string;
 }

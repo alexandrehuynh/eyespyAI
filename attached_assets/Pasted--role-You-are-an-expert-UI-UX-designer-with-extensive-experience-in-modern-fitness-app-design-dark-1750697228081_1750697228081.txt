@@ -1,0 +1,124 @@
+<role>
+You are an expert UI/UX designer with extensive experience in modern fitness app design, dark themes, and creating visually appealing dashboard interfaces. You specialize in maintaining design consistency across React applications with Tailwind CSS.
+</role>
+
+<task>
+Fix the visual design and color scheme of the Exercise Progress dashboard in EyeSpy AI to create a polished, aesthetically pleasing interface that matches the app's dark fitness theme and improves user experience.
+</task>
+
+<context>
+The EyeSpy AI app has a dark fitness-themed design with:
+- Dark blue to black gradient backgrounds
+- Modern, tech-forward aesthetic focusing on precision and safety
+- Clean card-based layouts with subtle shadows
+- Consistent spacing and typography
+- Professional appearance suitable for fitness tracking
+
+The current Exercise Progress dashboard has several UI issues:
+- Harsh blue background on "Exercise Progress" header that clashes with dark theme
+- Poor color contrast and readability
+- Inconsistent styling with rest of the application
+- Unprofessional appearance that breaks visual flow
+- Colors that are not easy on the eyes for extended viewing
+</context>
+
+<methodology>
+1. Analyze current progress dashboard styling and identify specific color/design issues
+2. Match the design patterns used in existing components (exercise cards, main interface)
+3. Apply consistent dark theme color palette throughout progress section
+4. Improve visual hierarchy with proper typography and spacing
+5. Ensure excellent contrast ratios for accessibility
+6. Add subtle visual enhancements for professional appearance
+</methodology>
+
+<current_issues>
+Visual problems to fix:
+- "Exercise Progress" header has harsh blue background that doesn't match app theme
+- Poor contrast between text and background colors
+- Inconsistent card styling compared to exercise selection cards
+- Missing visual polish and professional finish
+- Colors strain the eyes instead of being comfortable for extended viewing
+- Overall design breaks the visual consistency of the dark fitness theme
+</current_issues>
+
+<examples>
+<example>
+<input>Current: Blue header background with "Exercise Progress" text</input>
+<o>
+Fixed: Dark gradient background matching main app theme, elegant typography with proper contrast, subtle glow effects consistent with fitness branding
+</o>
+</example>
+
+<example>
+<input>Current: Statistics cards with poor color scheme</input>
+<o>
+Fixed: Dark card backgrounds with subtle borders, proper text contrast, consistent with exercise selection cards, hover effects for interactivity
+</o>
+</example>
+</examples>
+
+<thinking>
+Before implementing changes, consider:
+1. What specific color values and gradients are used in the existing exercise selection cards?
+2. How can I maintain the tech-forward, AI-focused fitness theme throughout the progress section?
+3. What typography hierarchy will improve readability while looking professional?
+4. How do I ensure the progress dashboard feels integrated with the rest of the app?
+5. What subtle animations or effects would enhance the user experience?
+6. How can I make the data visualization more engaging while keeping it readable?
+</thinking>
+
+<output_format>
+## UI Enhancement Requirements
+
+### Color Scheme Fixes
+- Replace harsh blue header background with dark gradient matching main app theme
+- Use dark card backgrounds (dark blue/gray) with subtle transparency
+- Implement proper white/light text on dark backgrounds for optimal contrast
+- Add subtle accent colors (blues/teals) for highlights and emphasis only
+- Ensure all colors pass WCAG accessibility contrast requirements
+
+### Typography and Layout
+- Use consistent font weights and sizes matching existing components
+- Implement proper visual hierarchy (large titles, medium subtitles, small details)
+- Add adequate spacing between elements for comfortable reading
+- Align text properly within cards and sections
+
+### Card Design Consistency
+- Match exercise selection card styling (same shadow, border radius, padding)
+- Use consistent hover effects and transitions
+- Maintain same card dimensions and spacing patterns
+- Apply same background colors and opacity levels
+
+### Professional Polish
+- Add subtle glow effects or borders consistent with fitness theme
+- Implement smooth transitions for interactive elements
+- Use consistent iconography and spacing
+- Ensure mobile responsiveness is maintained
+
+### Specific Component Updates
+Target these files for styling improvements:
+- Progress dashboard component CSS/styling
+- Exercise progress cards
+- Session history section
+- Statistics display areas
+
+### Design Principles to Follow
+- Dark theme: Use dark backgrounds with light text
+- Fitness focus: Tech-forward, precision-oriented visual design
+- Consistency: Match existing exercise selection and analysis interface styling
+- Accessibility: Ensure proper contrast ratios and readable text sizes
+- Professional: Clean, modern design suitable for serious fitness tracking
+</output_format>
+
+<constraints>
+- Do not modify any functionality or data display logic - only visual styling
+- Maintain all existing responsive design and mobile compatibility
+- Use only Tailwind CSS classes consistent with current codebase
+- Preserve all current hover effects and interactive behaviors
+- Ensure changes work with existing dark theme implementation
+- Keep performance impact minimal - avoid heavy animations or complex CSS
+- Test color contrast to ensure accessibility compliance
+- Maintain consistency with existing exercise selection cards design patterns
+- Do not change component structure or layout - only styling and colors
+- Ensure the "Back to Exercises" button styling remains consistent with the fix
+</constraints>

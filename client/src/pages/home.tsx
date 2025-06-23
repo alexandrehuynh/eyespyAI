@@ -36,7 +36,7 @@ export default function Home() {
           <Button 
             onClick={() => setShowProgress(false)}
             variant="outline"
-            className="mb-6"
+            className="mb-6 bg-slate-800 border-slate-600 text-white hover:bg-slate-700 hover:border-slate-500 transition-all duration-200"
           >
             ← Back to Exercises
           </Button>

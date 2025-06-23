@@ -52,10 +52,10 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const repFlashRef = useRef(false);
   const movementVelocityRef = useRef<number[]>([]);
 
-  // Improved rep validation thresholds
-  const REP_COOLDOWN_MS = 500; // Reduced from 750ms for more responsive detection
-  const POSITION_STABILITY_FRAMES = 3; // Reduced from 5 for natural movement
-  const VELOCITY_HISTORY_FRAMES = 4;
+  // Much more responsive rep detection thresholds
+  const REP_COOLDOWN_MS = 300; // Even faster rep detection
+  const POSITION_STABILITY_FRAMES = 2; // Minimal frames for natural movement
+  const VELOCITY_HISTORY_FRAMES = 3;
 
   // Reset counters when exercise changes
   useEffect(() => {
@@ -101,27 +101,28 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [],
   );
 
-  // Improved exercise configurations with relaxed, realistic thresholds
+  // Much more realistic exercise configurations for front-facing camera
   const exerciseConfigs = {
     squat: {
-      perfectKneeAngle: { min: 70, max: 100 }, // Relaxed from 80-95
-      acceptableKneeAngle: { min: 60, max: 120 }, // Relaxed from 70-110
-      targetHipDepth: 0.15,
-      maxTorsoLean: 25, // Relaxed from 20
-      // New rep detection thresholds
-      downStateKneeAngle: 100, // Relaxed from 110
-      upStateKneeAngle: 130, // Relaxed from 140
-      minMovementRange: 25, // Minimum angle change for valid rep
+      perfectKneeAngle: { min: 60, max: 90 }, // Even more realistic range
+      acceptableKneeAngle: { min: 45, max: 140 }, // Very wide acceptable range
+      // Remove depth restrictions - let people go as deep as they can
+      targetHipDepth: 0.05, // Much more lenient
+      maxTorsoLean: 35, // More realistic lean allowance
+      // Much more lenient rep detection thresholds
+      downStateKneeAngle: 110, // Easier to trigger down state
+      upStateKneeAngle: 120, // Easier to trigger up state
+      minMovementRange: 20, // Reduced minimum movement for rep counting
     },
     pushup: {
-      perfectElbowAngle: { min: 60, max: 100 }, // Relaxed from 70-90
-      acceptableElbowAngle: { min: 45, max: 120 }, // Relaxed from 60-110
-      maxBodySag: 0.07, // Relaxed from 0.05
-      minRangeOfMotion: 20, // Relaxed from 25
-      // New rep detection thresholds
-      downStateElbowAngle: 100, // More realistic threshold
-      upStateElbowAngle: 140, // More realistic threshold
-      minMovementRange: 30, // Minimum angle change for valid rep
+      perfectElbowAngle: { min: 45, max: 90 }, // More realistic for front-facing camera
+      acceptableElbowAngle: { min: 30, max: 130 }, // Very wide acceptable range
+      maxBodySag: 0.12, // Much more lenient body alignment
+      minRangeOfMotion: 15, // Reduced minimum range
+      // More lenient rep detection thresholds
+      downStateElbowAngle: 110, // Easier to trigger down state
+      upStateElbowAngle: 130, // Easier to trigger up state
+      minMovementRange: 20, // Reduced minimum movement for rep counting
     },
     plank: {
       perfectBodyLine: { min: 170, max: 185 },
@@ -158,26 +159,33 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze knee angle with perfect and acceptable ranges
+      // Much more encouraging and realistic feedback system
       const { min: perfectMinKnee, max: perfectMaxKnee } = exerciseConfigs.squat.perfectKneeAngle;
       const { min: acceptableMinKnee, max: acceptableMaxKnee } = exerciseConfigs.squat.acceptableKneeAngle;
       
+      // Focus on positive feedback and realistic expectations
       if (avgKneeAngle >= perfectMinKnee && avgKneeAngle <= perfectMaxKnee) {
-        feedbackList.push({ type: "success", message: "Perfect squat depth!", icon: "✓" });
+        feedbackList.push({ type: "success", message: "Excellent squat depth!", icon: "✓" });
       } else if (avgKneeAngle >= acceptableMinKnee && avgKneeAngle <= acceptableMaxKnee) {
-        feedbackList.push({ type: "success", message: "Good squat form - keep it up!", icon: "👍" });
+        feedbackList.push({ type: "success", message: "Great squat form!", icon: "👍" });
       } else if (avgKneeAngle > acceptableMaxKnee) {
-        feedbackList.push({ type: "warning", message: "Go deeper - bend your knees more", icon: "⬇️" });
-        formScore -= 25;
+        // Only suggest going deeper if they're standing too upright
+        if (avgKneeAngle > 150) {
+          feedbackList.push({ type: "warning", message: "Try bending your knees more", icon: "⬇️" });
+          formScore -= 15;
+        } else {
+          feedbackList.push({ type: "success", message: "Good movement - keep it consistent!", icon: "👍" });
+        }
       } else if (avgKneeAngle < acceptableMinKnee) {
-        feedbackList.push({ type: "warning", message: "Don't go too deep - protect your knees", icon: "⚠️" });
-        formScore -= 15;
+        // Encourage deep squats - don't penalize depth!
+        feedbackList.push({ type: "success", message: "Impressive depth! Great flexibility!", icon: "🔥" });
       }
 
-      // Analyze hip depth
-      if (hipDepth < exerciseConfigs.squat.targetHipDepth - 0.05) {
-        feedbackList.push({ type: "warning", message: "Lower your hips below knee level", icon: "📐" });
-        formScore -= 20;
+      // Remove restrictive hip depth feedback - let people squat deep
+      // Only check for obviously poor form (too upright)
+      if (hipDepth < -0.1) {
+        feedbackList.push({ type: "warning", message: "Sit back more into the squat", icon: "📐" });
+        formScore -= 10;
       }
 
       // Improved rep counting with velocity-based detection
@@ -214,37 +222,28 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       let repDetected = false;
       const config = exerciseConfigs.squat;
 
-      if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
-        const recentPositions = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES);
-        const avgRecentKneeAngle = recentPositions.reduce((sum, pos) => sum + pos.kneeAngle, 0) / recentPositions.length;
+      // Simplified rep detection - focus on basic up/down movement
+      if (previousPositionsRef.current.length >= 2) {
+        const current = avgKneeAngle;
         
-        // Detect movement completion using velocity near zero
-        const recentVelocities = movementVelocityRef.current.slice(-2);
-        const avgVelocity = recentVelocities.length > 0 ? 
-          recentVelocities.reduce((sum, v) => sum + Math.abs(v), 0) / recentVelocities.length : 0;
-        const isMovementSlowing = avgVelocity < 20; // degrees/sec threshold
-
         if (currentState === "neutral" || currentState === "up") {
-          // Detect transition to down position with relaxed thresholds
-          if (avgRecentKneeAngle < config.downStateKneeAngle) {
-            const validDownFrames = recentPositions.filter(pos => pos.kneeAngle < config.downStateKneeAngle + 15).length;
-            if (validDownFrames >= 2) {
-              currentState = "down";
-              exerciseStateRef.current = "down";
-            }
+          // Detect going down - much more lenient threshold
+          if (current < config.downStateKneeAngle) {
+            currentState = "down";
+            exerciseStateRef.current = "down";
           }
         } else if (currentState === "down") {
-          // Detect completion of rep (return to up position)
-          if (avgRecentKneeAngle > config.upStateKneeAngle && isMovementSlowing) {
-            const validUpFrames = recentPositions.filter(pos => pos.kneeAngle > config.upStateKneeAngle - 15).length;
+          // Detect coming back up - simplified logic
+          if (current > config.upStateKneeAngle && 
+              now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
             
-            // Check minimum movement range was achieved
-            const minKneeAngleInHistory = Math.min(...previousPositionsRef.current.map(p => p.kneeAngle));
-            const movementRange = avgRecentKneeAngle - minKneeAngleInHistory;
+            // Much simpler movement range check
+            const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.kneeAngle);
+            const minRecentAngle = Math.min(...recentAngles);
+            const movementRange = current - minRecentAngle;
             
-            if (validUpFrames >= 2 && 
-                movementRange >= config.minMovementRange && 
-                now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
+            // Very lenient rep validation
+            if (movementRange >= config.minMovementRange) {
               currentState = "up";
               exerciseStateRef.current = "up";
               repCounterRef.current += 1;
@@ -254,7 +253,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
 
               setTimeout(() => {
                 repFlashRef.current = false;
-              }, 1000);
+              }, 800);
             }
           }
         }
@@ -329,26 +328,32 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const feedbackList: PoseFeedback[] = [];
       let formScore = 100;
 
-      // Analyze elbow angle with perfect and acceptable ranges
+      // More encouraging push-up feedback system
       const { min: perfectMinElbow, max: perfectMaxElbow } = exerciseConfigs.pushup.perfectElbowAngle;
       const { min: acceptableMinElbow, max: acceptableMaxElbow } = exerciseConfigs.pushup.acceptableElbowAngle;
       
+      // Focus on positive feedback and realistic expectations
       if (avgElbowAngle >= perfectMinElbow && avgElbowAngle <= perfectMaxElbow) {
-        feedbackList.push({ type: "success", message: "Perfect push-up depth!", icon: "✓" });
+        feedbackList.push({ type: "success", message: "Excellent push-up depth!", icon: "✓" });
       } else if (avgElbowAngle >= acceptableMinElbow && avgElbowAngle <= acceptableMaxElbow) {
-        feedbackList.push({ type: "success", message: "Good push-up form - keep it up!", icon: "👍" });
+        feedbackList.push({ type: "success", message: "Great push-up form!", icon: "👍" });
       } else if (avgElbowAngle > acceptableMaxElbow) {
-        feedbackList.push({ type: "warning", message: "Lower your chest more", icon: "⬇️" });
-        formScore -= 25;
+        // Only suggest going lower if they're barely bending arms
+        if (avgElbowAngle > 150) {
+          feedbackList.push({ type: "warning", message: "Try lowering your chest more", icon: "⬇️" });
+          formScore -= 15;
+        } else {
+          feedbackList.push({ type: "success", message: "Good movement - keep it consistent!", icon: "👍" });
+        }
       } else if (avgElbowAngle < acceptableMinElbow) {
-        feedbackList.push({ type: "warning", message: "Don't lower too much - maintain control", icon: "⚠️" });
-        formScore -= 15;
+        // Don't penalize deep push-ups
+        feedbackList.push({ type: "success", message: "Great range of motion!", icon: "🔥" });
       }
 
-      // Body alignment check
-      if (bodySag > exerciseConfigs.pushup.maxBodySag + 0.03) {
-        feedbackList.push({ type: "warning", message: "Keep body straight - engage core", icon: "📏" });
-        formScore -= 20;
+      // More lenient body alignment check
+      if (bodySag > exerciseConfigs.pushup.maxBodySag + 0.05) {
+        feedbackList.push({ type: "warning", message: "Try to keep body straighter", icon: "📏" });
+        formScore -= 10;
       }
 
       // Improved push-up rep counting with velocity-based detection
@@ -385,38 +390,28 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       let repDetected = false;
       const config = exerciseConfigs.pushup;
 
-      if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
-        const recentPositions = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES);
-        const avgRecentElbowAngle = recentPositions.reduce((sum, pos) => sum + pos.elbowAngle, 0) / recentPositions.length;
+      // Simplified push-up rep detection - focus on basic up/down movement
+      if (previousPositionsRef.current.length >= 2) {
+        const current = avgElbowAngle;
         
-        // Detect movement completion using velocity near zero
-        const recentVelocities = movementVelocityRef.current.slice(-2);
-        const avgVelocity = recentVelocities.length > 0 ? 
-          recentVelocities.reduce((sum, v) => sum + Math.abs(v), 0) / recentVelocities.length : 0;
-        const isMovementSlowing = avgVelocity < 25; // degrees/sec threshold for push-ups
-
-        // Detect down position (chest lowered, smaller elbow angle) with relaxed thresholds
         if (currentState === "neutral" || currentState === "up") {
-          if (avgRecentElbowAngle < config.downStateElbowAngle) {
-            const validDownFrames = recentPositions.filter(pos => pos.elbowAngle < config.downStateElbowAngle + 15).length;
-            if (validDownFrames >= 2) {
-              currentState = "down";
-              exerciseStateRef.current = "down";
-            }
+          // Detect going down - much more lenient threshold
+          if (current < config.downStateElbowAngle) {
+            currentState = "down";
+            exerciseStateRef.current = "down";
           }
-        } 
-        // Detect completion of rep (return to up position)
-        else if (currentState === "down") {
-          if (avgRecentElbowAngle > config.upStateElbowAngle && isMovementSlowing) {
-            const validUpFrames = recentPositions.filter(pos => pos.elbowAngle > config.upStateElbowAngle - 15).length;
+        } else if (currentState === "down") {
+          // Detect coming back up - simplified logic
+          if (current > config.upStateElbowAngle && 
+              now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
             
-            // Check minimum movement range was achieved
-            const minElbowAngleInHistory = Math.min(...previousPositionsRef.current.map(p => p.elbowAngle));
-            const movementRange = avgRecentElbowAngle - minElbowAngleInHistory;
+            // Much simpler movement range check
+            const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.elbowAngle);
+            const minRecentAngle = Math.min(...recentAngles);
+            const movementRange = current - minRecentAngle;
             
-            if (validUpFrames >= 2 && 
-                movementRange >= config.minMovementRange && 
-                now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
+            // Very lenient rep validation
+            if (movementRange >= config.minMovementRange) {
               currentState = "up";
               exerciseStateRef.current = "up";
               repCounterRef.current += 1;
@@ -426,7 +421,7 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
 
               setTimeout(() => {
                 repFlashRef.current = false;
-              }, 1000);
+              }, 800);
             }
           }
         }

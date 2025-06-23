@@ -1,0 +1,139 @@
+<role>
+You are an expert full-stack authentication developer with extensive experience implementing secure user authentication systems in React + Express applications. You specialize in session-based authentication, password security, and seamless integration with existing database schemas without disrupting functionality.
+</role>
+
+<task>
+Implement a complete user authentication system for EyeSpy AI that transforms the current shared-user experience into individual user accounts with personal workout tracking, while preserving all existing exercise analysis functionality.
+</task>
+
+<context>
+EyeSpy AI currently has:
+- ✅ Complete exercise tracking with MediaPipe pose detection
+- ✅ PostgreSQL database with Drizzle ORM configured
+- ✅ Users table with username/password fields already in schema
+- ✅ All exercise data tables have userId foreign keys ready
+- ❌ Hard-coded userId = 1 causing all users to share same data
+- ❌ No login/signup UI or authentication flow
+- ❌ No session management for maintaining login state
+
+Current Problem: Everyone who visits the site sees the same workout data because all sessions use userId = 1. Need individual user accounts so each person has private workout tracking.
+</context>
+
+<methodology>
+1. Create user registration and login UI components
+2. Implement secure authentication API endpoints with password hashing
+3. Add session management to maintain login state across page refreshes
+4. Replace hard-coded userId = 1 with authenticated user ID throughout application
+5. Update all data queries to filter by current authenticated user
+6. Add authentication middleware to protect exercise data endpoints
+7. Create user profile management and logout functionality
+</methodology>
+
+<current_data_flow>
+Problem: All users currently share data because of hard-coded userId = 1
+- exerciseApi.startSession() uses userId = 1 for everyone
+- Progress dashboard shows combined data from all visitors
+- No privacy or individual tracking between different people
+- Exercise sessions get mixed together in database
+</current_data_flow>
+
+<examples>
+<example>
+<input>User A visits site, does 10 squats, then User B visits and does 5 squats</input>
+<o>
+Current (broken): Both see progress showing 15 total squats combined
+Fixed: User A sees 10 squats, User B sees 5 squats separately with individual accounts
+</o>
+</example>
+
+<example>
+<input>User wants to view workout progress</input>
+<o>
+Current: Shows userId = 1 data (everyone's combined workouts)
+Fixed: Shows only authenticated user's personal workout history
+</o>
+</example>
+</examples>
+
+<thinking>
+Before implementing authentication, consider:
+1. How do I maintain all existing exercise functionality while adding auth?
+2. Where exactly is the hard-coded userId = 1 being used in the codebase?
+3. What authentication flow provides the best user experience for a fitness app?
+4. How do I secure exercise data endpoints without breaking existing functionality?
+5. What session management approach works best with the current React + Express setup?
+6. How do I handle users who are not logged in - redirect or show auth forms?
+</thinking>
+
+<output_format>
+## Implementation Plan
+
+### Step 1: Authentication UI Components
+Create these new components in `client/src/components/auth/`:
+```typescript
+// AuthForm.tsx - Combined login/signup form
+// AuthGuard.tsx - Protect authenticated routes
+// UserProfile.tsx - User account management
+```
+
+### Step 2: Authentication API Endpoints
+Add to `server/routes/auth.ts`:
+```typescript
+// POST /api/auth/register - User registration with password hashing
+// POST /api/auth/login - User login with session creation
+// POST /api/auth/logout - Session destruction
+// GET /api/auth/me - Get current authenticated user
+```
+
+### Step 3: Session Management
+Update `server/index.ts`:
+```typescript
+// Add express-session middleware
+// Configure session store for user authentication
+// Add authentication middleware for protected routes
+```
+
+### Step 4: Replace Hard-coded User ID
+Update these files to use authenticated userId:
+```typescript
+// client/src/services/exerciseApi.ts - Remove userId = 1, get from auth
+// All API calls that currently use hard-coded userId = 1
+// Progress dashboard to show only current user's data
+```
+
+### Step 5: Authentication Flow Integration
+Update main app structure:
+```typescript
+// client/src/App.tsx - Add authentication routing
+// client/src/components/AnalysisInterface.tsx - Require authentication
+// client/src/components/ProgressDashboard.tsx - Show user-specific data
+```
+
+### Step 6: Database Query Updates
+Modify all exercise data queries to filter by authenticated user:
+```typescript
+// Exercise sessions filtered by current user ID
+// Progress data specific to authenticated user
+// Session history showing only user's workouts
+```
+</output_format>
+
+<constraints>
+- Preserve all existing MediaPipe pose detection and exercise analysis functionality
+- Do not modify exercise form analysis, rep counting, or camera functionality
+- Maintain current UI design patterns and dark fitness theme
+- Use existing users table schema (username, password fields)
+- Implement secure password hashing (bcrypt) for user safety
+- Add proper input validation for usernames and passwords
+- Ensure session security with proper session configuration
+- Handle authentication state in React without external libraries (no Auth0, Firebase)
+- Use express-session for server-side session management
+- Redirect unauthenticated users to login before accessing exercises
+- Preserve all existing API response formats and error handling
+- Maintain mobile responsiveness in new authentication components
+- If user is not logged in, show authentication forms instead of exercise interface
+- Ensure exercise data remains private per user after authentication is implemented
+- Test that multiple users can have separate workout data and progress tracking
+- Add proper error messages for login failures and registration validation
+- Include form validation for username (min length, unique) and password (min length, strength)
+</constraints>

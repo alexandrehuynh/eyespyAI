@@ -1,0 +1,148 @@
+# EyeSpy AI Database Integration - Enhanced XML Prompt
+
+<role>
+You are an expert full-stack developer specializing in React, Express.js, PostgreSQL, and Drizzle ORM. You have extensive experience integrating database functionality into existing fitness applications without disrupting working pose detection systems.
+</role>
+
+<task>
+Add comprehensive database integration to the existing EyeSpy AI exercise analysis system. Implement session tracking, metrics recording, and progress analytics while preserving all existing MediaPipe pose detection functionality.
+</task>
+
+<context>
+EyeSpy AI is a real-time exercise form analysis system with:
+- ✅ Complete React + TypeScript frontend with MediaPipe pose detection
+- ✅ Working form analysis for squats, push-ups, planks with rep counting
+- ✅ Express.js backend with user authentication  
+- ✅ PostgreSQL database with Drizzle ORM configured
+- ✅ Current schema: basic users table in shared/schema.ts
+- 🔄 MISSING: Database layer to store exercise sessions and progress data
+
+The goal is to transform the app from real-time analysis only into a complete fitness tracking platform with historical data and progress analytics.
+</context>
+
+<methodology>
+1. Extend existing database schema with three new tables
+2. Create RESTful API endpoints for data management
+3. Integrate session management into existing AnalysisInterface component
+4. Add real-time metrics recording to pose detection hooks
+5. Create progress dashboard for historical data visualization
+6. Implement proper error handling and data validation
+</methodology>
+
+<input_data>
+Current project structure:
+- Database: PostgreSQL with Drizzle ORM in shared/schema.ts
+- Backend: Express.js server with existing user authentication
+- Frontend: React components in client/src/components/
+- Key files: AnalysisInterface.tsx, usePoseDetection.ts, CameraView.tsx
+- Existing data: Real-time form scores, rep counts, angle measurements, detection quality
+</input_data>
+
+<examples>
+<example>
+<input>User completes a squat session with 10 reps, average form score 85%</input>
+<output>
+Database records:
+- exercise_sessions: sessionId, userId, 'squat', startTime, endTime, 600 seconds, 10 reps, 85
+- exercise_metrics: 10 records with individual rep data, form scores, knee angles
+- user_progress: updated totals, new best form score if applicable
+</output>
+</example>
+
+<example>
+<input>User starts exercise session</input>
+<output>
+API Response: { "success": true, "data": { "sessionId": 123, "startTime": "2025-01-20T10:00:00Z" } }
+Frontend: Stores sessionId, begins real-time metrics collection
+</output>
+</example>
+</examples>
+
+<thinking>
+Before implementing, systematically plan:
+1. What database tables are needed to store all exercise data comprehensively?
+2. How can I integrate session management without disrupting existing pose detection?
+3. What API endpoints provide the most efficient data flow?
+4. How do I batch real-time metrics to avoid performance impact?
+5. What validation ensures data integrity and proper relationships?
+6. How do I handle edge cases like incomplete sessions or connection failures?
+</thinking>
+
+<output_format>
+Implementation in this specific order:
+
+## Step 1: Database Schema Extension
+File: `shared/schema.ts`
+```typescript
+export const exerciseSessions = pgTable("exercise_sessions", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  exerciseType: text("exercise_type").notNull(), // 'squat', 'pushup', 'plank'
+  startTime: timestamp("start_time").defaultNow().notNull(),
+  endTime: timestamp("end_time"),
+  duration: integer("duration_seconds"),
+  totalReps: integer("total_reps").default(0),
+  averageFormScore: integer("average_form_score"), // 0-100
+  cameraOrientation: text("camera_orientation"), // 'portrait' or 'landscape'
+});
+
+export const exerciseMetrics = pgTable("exercise_metrics", {
+  id: serial("id").primaryKey(),
+  sessionId: integer("session_id").notNull().references(() => exerciseSessions.id),
+  timestamp: timestamp("timestamp").defaultNow().notNull(),
+  repNumber: integer("rep_number"),
+  formScore: integer("form_score").notNull(), // 0-100
+  kneeAngle: integer("knee_angle"), // For squats
+  elbowAngle: integer("elbow_angle"), // For push-ups  
+  bodyLineAngle: integer("body_line_angle"), // For planks
+  detectionQuality: text("detection_quality"), // 'poor', 'good', 'excellent'
+});
+
+export const userProgress = pgTable("user_progress", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  exerciseType: text("exercise_type").notNull(),
+  totalSessions: integer("total_sessions").default(0),
+  bestFormScore: integer("best_form_score").default(0),
+  personalBestReps: integer("personal_best_reps").default(0),
+  lastSessionDate: timestamp("last_session_date"),
+});
+
+export type ExerciseSession = typeof exerciseSessions.$inferSelect;
+export type ExerciseMetric = typeof exerciseMetrics.$inferSelect;
+export type UserProgress = typeof userProgress.$inferSelect;
+```
+
+## Step 2: API Endpoints
+File: `server/routes/exercise.ts`
+```typescript
+// POST /api/exercise/session/start
+// PUT /api/exercise/session/:id/end  
+// POST /api/exercise/metrics
+// GET /api/exercise/progress/:userId
+```
+
+## Step 3: Frontend Integration
+Files to modify:
+- `client/src/components/AnalysisInterface.tsx` - Add session start/end
+- `client/src/hooks/usePoseDetection.ts` - Add metrics recording
+- Create `client/src/services/exerciseApi.ts` - API service layer
+
+## Step 4: Progress Dashboard
+File: `client/src/components/ProgressDashboard.tsx`
+</output_format>
+
+<constraints>
+- Never modify existing MediaPipe integration, pose detection algorithms, or form analysis code
+- Preserve all current UI/UX design patterns and mobile responsiveness
+- Use existing authentication system and follow current TypeScript patterns
+- Validate all data: form scores (0-100), angles (0-180), exercise types ('squat', 'pushup', 'plank')
+- Implement graceful degradation: continue exercise analysis even if database operations fail
+- Use consistent API response format: { success: boolean, data?: any, error?: string }
+- Batch real-time metrics recording to avoid performance impact on pose detection
+- If any part of existing codebase structure is unclear, ask specific questions before proceeding
+- Test all database operations and API endpoints before marking complete
+- Ensure session data persists correctly across browser refreshes
+- Include proper error handling for database connection failures
+- Run database migration with existing `npm run db:push` command after schema changes
+</constraints>

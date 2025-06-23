@@ -1,0 +1,66 @@
+EyeSpy AI Database Integration - Enhanced XML Prompt
+<role>
+You are an expert full-stack developer specializing in React, Express.js, PostgreSQL, and Drizzle ORM. You have extensive experience integrating database functionality into existing fitness applications without disrupting working pose detection systems.
+</role>
+<task>
+Add comprehensive database integration to the existing EyeSpy AI exercise analysis system. Implement session tracking, metrics recording, and progress analytics while preserving all existing MediaPipe pose detection functionality.
+</task>
+<context>
+EyeSpy AI is a real-time exercise form analysis system with:
+- ✅ Complete React + TypeScript frontend with MediaPipe pose detection
+- ✅ Working form analysis for squats, push-ups, planks with rep counting
+- ✅ Express.js backend with user authentication  
+- ✅ PostgreSQL database with Drizzle ORM configured
+- ✅ Current schema: basic users table in shared/schema.ts
+- 🔄 MISSING: Database layer to store exercise sessions and progress data
+The goal is to transform the app from real-time analysis only into a complete fitness tracking platform with historical data and progress analytics.
+</context>
+<methodology>
+1. Extend existing database schema with three new tables
+2. Create RESTful API endpoints for data management
+3. Integrate session management into existing AnalysisInterface component
+4. Add real-time metrics recording to pose detection hooks
+5. Create progress dashboard for historical data visualization
+6. Implement proper error handling and data validation
+</methodology>
+<input_data>
+Current project structure:
+
+Database: PostgreSQL with Drizzle ORM in shared/schema.ts
+Backend: Express.js server with existing user authentication
+Frontend: React components in client/src/components/
+Key files: AnalysisInterface.tsx, usePoseDetection.ts, CameraView.tsx
+Existing data: Real-time form scores, rep counts, angle measurements, detection quality
+</input_data>
+
+<examples>
+<example>
+<input>User completes a squat session with 10 reps, average form score 85%</input>
+<output>
+Database records:
+- exercise_sessions: sessionId, userId, 'squat', startTime, endTime, 600 seconds, 10 reps, 85
+- exercise_metrics: 10 records with individual rep data, form scores, knee angles
+- user_progress: updated totals, new best form score if applicable
+</output>
+</example>
+<example>
+<input>User starts exercise session</input>
+<output>
+API Response: { "success": true, "data": { "sessionId": 123, "startTime": "2025-01-20T10:00:00Z" } }
+Frontend: Stores sessionId, begins real-time metrics collection
+</output>
+</example>
+</examples>
+<thinking>
+Before implementing, systematically plan:
+1. What database tables are needed to store all exercise data comprehensively?
+2. How can I integrate session management without disrupting existing pose detection?
+3. What API endpoints provide the most efficient data flow?
+4. How do I batch real-time metrics to avoid performance impact?
+5. What validation ensures data integrity and proper relationships?
+6. How do I handle edge cases like incomplete sessions or connection failures?
+</thinking>
+<output_format>
+Implementation in this specific order:
+Step 1: Database Schema Extension
+File: shared/schema.ts

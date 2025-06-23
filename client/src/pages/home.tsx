@@ -40,7 +40,7 @@ export default function Home() {
           >
             ← Back to Exercises
           </Button>
-          <ProgressDashboard userId={1} />
+          <ProgressDashboard />
         </div>
       </div>
     );

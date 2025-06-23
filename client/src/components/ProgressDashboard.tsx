@@ -6,9 +6,7 @@ import { exerciseApi } from "@/services/exerciseApi";
 import type { ExerciseSession, UserProgress } from "@shared/schema";
 import { Exercise } from "@/pages/home";
 
-interface ProgressDashboardProps {
-  userId: number;
-}
+interface ProgressDashboardProps {}
 
 const exercises = {
   squat: { name: 'Squat', emoji: '🏋️', color: 'bg-blue-500' },
@@ -16,7 +14,7 @@ const exercises = {
   plank: { name: 'Plank', emoji: '🧘', color: 'bg-purple-500' }
 };
 
-export default function ProgressDashboard({ userId }: ProgressDashboardProps) {
+export default function ProgressDashboard({}: ProgressDashboardProps) {
   const [sessions, setSessions] = useState<ExerciseSession[]>([]);
   const [progress, setProgress] = useState<UserProgress[]>([]);
   const [selectedExercise, setSelectedExercise] = useState<Exercise>('squat');
@@ -27,13 +25,13 @@ export default function ProgressDashboard({ userId }: ProgressDashboardProps) {
       setLoading(true);
       try {
         // Load recent sessions
-        const sessionsResult = await exerciseApi.getUserSessions(userId, 20);
+        const sessionsResult = await exerciseApi.getUserSessions(20);
         if (sessionsResult.success && sessionsResult.data) {
           setSessions(sessionsResult.data);
         }
 
         // Load progress data
-        const progressResult = await exerciseApi.getUserProgress(userId);
+        const progressResult = await exerciseApi.getUserProgress();
         if (progressResult.success && progressResult.data) {
           setProgress(progressResult.data);
         }
@@ -45,7 +43,7 @@ export default function ProgressDashboard({ userId }: ProgressDashboardProps) {
     };
 
     loadData();
-  }, [userId]);
+  }, []);
 
   const getProgressForExercise = (exerciseType: Exercise) => {
     return progress.find(p => p.exerciseType === exerciseType);

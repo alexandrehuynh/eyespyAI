@@ -84,12 +84,12 @@ export const exerciseApi = {
     }
   },
 
-  // Get user's exercise sessions
-  async getUserSessions(userId: number, limit = 10): Promise<ApiResponse<ExerciseSession[]>> {
+  // Get current user's exercise sessions
+  async getUserSessions(limit = 10): Promise<ApiResponse<ExerciseSession[]>> {
     try {
-      const response = await apiRequest<ExerciseSession[]>({
+      const response = await apiRequest({
         method: "GET",
-        endpoint: `/api/exercise/sessions/${userId}?limit=${limit}`,
+        endpoint: `/api/exercise/sessions?limit=${limit}`,
       });
       return { success: true, data: response };
     } catch (error) {
@@ -142,13 +142,13 @@ export const exerciseApi = {
     }
   },
 
-  // Get user progress data
-  async getUserProgress(userId: number, exerciseType?: string): Promise<ApiResponse<UserProgress[]>> {
+  // Get current user's progress data
+  async getUserProgress(exerciseType?: string): Promise<ApiResponse<UserProgress[]>> {
     try {
       const queryParam = exerciseType ? `?exerciseType=${exerciseType}` : '';
-      const response = await apiRequest<UserProgress[]>({
+      const response = await apiRequest({
         method: "GET",
-        endpoint: `/api/exercise/progress/${userId}${queryParam}`,
+        endpoint: `/api/exercise/progress${queryParam}`,
       });
       return { success: true, data: response };
     } catch (error) {

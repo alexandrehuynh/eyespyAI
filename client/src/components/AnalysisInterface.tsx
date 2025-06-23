@@ -82,9 +82,7 @@ export default function AnalysisInterface({
     if (isActive && !currentSessionId) {
       const startSession = async () => {
         try {
-          const userId = 1; // Default user for demo - in production, get from auth
           const result = await exerciseApi.startSession({
-            userId,
             exerciseType: selectedExercise,
             cameraOrientation: isPortraitMode ? 'portrait' : 'landscape'
           });

@@ -2,12 +2,15 @@ import { useState } from "react";
 import AppHeader from "@/components/AppHeader";
 import ExerciseSelector from "@/components/ExerciseSelector";
 import AnalysisInterface from "@/components/AnalysisInterface";
+import ProgressDashboard from "@/components/ProgressDashboard";
+import { Button } from "@/components/ui/button";
 
 export type Exercise = 'squat' | 'pushup' | 'plank';
 
 export default function Home() {
   const [selectedExercise, setSelectedExercise] = useState<Exercise | null>(null);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [showProgress, setShowProgress] = useState(false);
 
   const handleExerciseSelect = (exercise: Exercise) => {
     setSelectedExercise(exercise);
@@ -24,11 +27,40 @@ export default function Home() {
     setSelectedExercise(null);
   };
 
+  // Show progress dashboard if requested
+  if (showProgress) {
+    return (
+      <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-black text-white overflow-x-hidden">
+        <AppHeader />
+        <div className="container mx-auto px-6 py-6">
+          <Button 
+            onClick={() => setShowProgress(false)}
+            variant="outline"
+            className="mb-6"
+          >
+            ← Back to Exercises
+          </Button>
+          <ProgressDashboard userId={1} />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-900 to-black text-white overflow-x-hidden">
       <AppHeader />
       
       <main className="container mx-auto px-6 pb-12">
+        {/* Progress Dashboard Access */}
+        <div className="flex justify-end mb-6 mt-6">
+          <Button 
+            onClick={() => setShowProgress(true)}
+            variant="outline"
+            className="bg-slate-800 border-slate-600 text-white hover:bg-slate-700"
+          >
+            📊 View Progress
+          </Button>
+        </div>
         <ExerciseSelector
           selectedExercise={selectedExercise}
           onExerciseSelect={handleExerciseSelect}

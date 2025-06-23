@@ -28,6 +28,14 @@ export default function AnalysisInterface({
   const [currentCameraId, setCurrentCameraId] = useState<string>('');
   const [camerasEnumerated, setCamerasEnumerated] = useState(false);
   
+  // Session management state
+  const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
+  const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const metricsBuffer = useRef<InsertExerciseMetric[]>([]);
+  const lastMetricTime = useRef<number>(0);
+  const METRIC_INTERVAL_MS = 1000; // Record metrics every second
+  const BATCH_SIZE = 10; // Send metrics in batches of 10
+  
   // Set default camera orientation based on exercise type
   const getDefaultOrientation = (exercise: Exercise) => {
     switch (exercise) {
@@ -68,6 +76,108 @@ export default function AnalysisInterface({
   }, [selectedExercise]);
   
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
+
+  // Start exercise session when analysis begins
+  useEffect(() => {
+    if (isActive && !currentSessionId) {
+      const startSession = async () => {
+        try {
+          const userId = 1; // Default user for demo - in production, get from auth
+          const result = await exerciseApi.startSession({
+            userId,
+            exerciseType: selectedExercise,
+            cameraOrientation: isPortraitMode ? 'portrait' : 'landscape'
+          });
+          
+          if (result.success && result.data) {
+            setCurrentSessionId(result.data.sessionId);
+            setSessionStartTime(new Date());
+            console.log(`Started exercise session ${result.data.sessionId} for ${selectedExercise}`);
+          }
+        } catch (error) {
+          console.warn("Failed to start session, continuing without database tracking:", error);
+        }
+      };
+      
+      startSession();
+    }
+  }, [isActive, selectedExercise, isPortraitMode, currentSessionId]);
+
+  // Record exercise metrics periodically
+  useEffect(() => {
+    if (isActive && currentSessionId && metrics) {
+      const now = Date.now();
+      
+      // Only record metrics at specified intervals to avoid overwhelming the database
+      if (now - lastMetricTime.current >= METRIC_INTERVAL_MS) {
+        const metric: InsertExerciseMetric = {
+          sessionId: currentSessionId,
+          formScore: metrics.formQuality,
+          repNumber: metrics.reps,
+          detectionQuality: metrics.detectionQuality,
+          // Exercise-specific angle data
+          ...(selectedExercise === 'squat' && metrics.currentAngles && {
+            kneeAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          }),
+          ...(selectedExercise === 'pushup' && metrics.currentAngles && {
+            elbowAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          }),
+          ...(selectedExercise === 'plank' && metrics.currentAngles && {
+            bodyLineAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          })
+        };
+        
+        metricsBuffer.current.push(metric);
+        lastMetricTime.current = now;
+        
+        // Send metrics in batches for efficiency
+        if (metricsBuffer.current.length >= BATCH_SIZE) {
+          const batchToSend = [...metricsBuffer.current];
+          metricsBuffer.current = [];
+          
+          exerciseApi.recordMetricsBatch(batchToSend).catch(error => {
+            console.warn("Failed to record metrics batch:", error);
+          });
+        }
+      }
+    }
+  }, [isActive, currentSessionId, metrics, selectedExercise]);
+
+  // End session and finalize data when analysis stops
+  useEffect(() => {
+    if (!isActive && currentSessionId && sessionStartTime) {
+      const endSession = async () => {
+        try {
+          // Send any remaining metrics in buffer
+          if (metricsBuffer.current.length > 0) {
+            await exerciseApi.recordMetricsBatch([...metricsBuffer.current]);
+            metricsBuffer.current = [];
+          }
+          
+          // Calculate session summary
+          const duration = Math.round((Date.now() - sessionStartTime.getTime()) / 1000);
+          const sessionEndData = {
+            duration,
+            totalReps: metrics?.reps || 0,
+            averageFormScore: Math.round(metrics?.formQuality || 0)
+          };
+          
+          const result = await exerciseApi.endSession(currentSessionId, sessionEndData);
+          
+          if (result.success) {
+            console.log(`Ended exercise session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
+          }
+        } catch (error) {
+          console.warn("Failed to end session properly:", error);
+        } finally {
+          setCurrentSessionId(null);
+          setSessionStartTime(null);
+        }
+      };
+      
+      endSession();
+    }
+  }, [isActive, currentSessionId, sessionStartTime, metrics]);
 
   const handleVideoReady = useCallback((video: HTMLVideoElement) => {
     setVideoElement(video);

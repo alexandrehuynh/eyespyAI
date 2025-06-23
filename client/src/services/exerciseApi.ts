@@ -1,4 +1,28 @@
-import { apiRequest } from "@/lib/queryClient";
+// Custom API request function for exercise data
+async function apiRequest<T>({
+  method,
+  endpoint,
+  body,
+}: {
+  method: string;
+  endpoint: string;
+  body?: any;
+}): Promise<T> {
+  const res = await fetch(endpoint, {
+    method,
+    headers: body ? { "Content-Type": "application/json" } : {},
+    body: body ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
+
+  if (!res.ok) {
+    const text = (await res.text()) || res.statusText;
+    throw new Error(`${res.status}: ${text}`);
+  }
+
+  const data = await res.json();
+  return data.data || data; // Handle both wrapped and unwrapped responses
+}
 import type { 
   ExerciseSession, 
   ExerciseMetric, 
@@ -34,7 +58,7 @@ export const exerciseApi = {
   // Start a new exercise session
   async startSession(data: SessionStartRequest): Promise<ApiResponse<{ sessionId: number; startTime: string }>> {
     try {
-      const response = await apiRequest<{ sessionId: number; startTime: string }>({
+      const response = await apiRequest({
         method: "POST",
         endpoint: "/api/exercise/session/start",
         body: data,

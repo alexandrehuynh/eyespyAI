@@ -1,5 +1,5 @@
 import { drizzle } from "drizzle-orm/neon-serverless";
-import { eq, and, desc } from "drizzle-orm";
+import { eq, and, desc, lt, or, isNull } from "drizzle-orm";
 import { 
   users, 
   exerciseSessions, 
@@ -173,12 +173,7 @@ export class DatabaseStorage implements IStorage {
       const now = new Date();
       await this.db
         .delete(authTokens)
-        .where(
-          and(
-            eq(authTokens.expiresAt < now as any, true),
-            eq(authTokens.usedAt !== null as any, true)
-          )
-        );
+        .where(lt(authTokens.expiresAt, now));
     } catch (error) {
       console.error("Error cleaning up expired tokens:", error);
       // Don't throw error for cleanup operations

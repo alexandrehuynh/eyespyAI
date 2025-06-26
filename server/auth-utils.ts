@@ -86,11 +86,11 @@ export class AuthUtils {
   // Clean up expired rate limit entries
   static cleanupRateLimits(): void {
     const now = Date.now();
-    for (const [key, entry] of rateLimitStore.entries()) {
+    Array.from(rateLimitStore.entries()).forEach(([key, entry]) => {
       if (now > entry.resetTime) {
         rateLimitStore.delete(key);
       }
-    }
+    });
   }
 
   // Validate email format

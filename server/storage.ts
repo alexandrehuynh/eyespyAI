@@ -59,7 +59,8 @@ export class DatabaseStorage implements IStorage {
     if (!process.env.DATABASE_URL) {
       throw new Error("DATABASE_URL environment variable is required");
     }
-    this.db = drizzle(process.env.DATABASE_URL);
+    const sql = postgres(process.env.DATABASE_URL);
+    this.db = drizzle(sql);
   }
 
   // User Management Methods

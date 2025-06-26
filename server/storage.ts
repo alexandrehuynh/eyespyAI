@@ -250,15 +250,23 @@ export class DatabaseStorage implements IStorage {
 
   async getUserSessions(userId: number, limit = 10): Promise<ExerciseSession[]> {
     try {
+      console.log(`🔍 [DB_SESSIONS_DEBUG] Fetching sessions for user ${userId}, limit: ${limit}`);
+      
       const result = await this.db
         .select()
         .from(exerciseSessions)
         .where(eq(exerciseSessions.userId, userId))
         .orderBy(desc(exerciseSessions.startTime))
         .limit(limit);
+      
+      console.log(`📊 [DB_SESSIONS_DEBUG] Found ${result.length} sessions for user ${userId}:`);
+      result.forEach((session, index) => {
+        console.log(`  ${index + 1}. Session ${session.id}: ${session.exerciseType}, ${session.totalReps} reps, ${session.averageFormScore}% form, ${session.duration}s`);
+      });
+      
       return result;
     } catch (error) {
-      console.error("Error getting user sessions:", error);
+      console.error(`❌ [DB_SESSIONS_DEBUG] Error getting user sessions for ${userId}:`, error);
       throw new Error("Failed to retrieve user sessions");
     }
   }

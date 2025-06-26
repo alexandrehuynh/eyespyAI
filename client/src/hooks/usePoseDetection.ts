@@ -631,6 +631,13 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       const quality = assessPoseQuality(results);
 
       if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+        console.log(`🔍 [POSE_DEBUG] No person detected - preserving exercise state`);
+        
+        // CRITICAL FIX: Don't reset exercise state during temporary detection loss
+        // Only reset position tracking data, preserve rep counting state
+        previousPositionsRef.current = [];
+        movementVelocityRef.current = [];
+        
         setMetrics((prev) => ({
           ...prev,
           isPersonDetected: false,
@@ -641,6 +648,22 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         }));
         setFeedback([{ type: "warning", message: "No person detected", icon: "👤" }]);
         return;
+      }
+
+      // Detection recovery logic - prevent false reps after frame loss
+      const wasDetectionLost = !metrics.isPersonDetected;
+      if (wasDetectionLost && (quality.detectionQuality === "good" || quality.detectionQuality === "excellent")) {
+        console.log(`🔄 [POSE_DEBUG] Detection recovered for ${exercise} - implementing safeguards`);
+        
+        // Reset exercise state machine to neutral to prevent false triggers
+        exerciseStateRef.current = "neutral";
+        
+        // Add recovery cooldown to prevent immediate rep detection
+        lastRepTimeRef.current = Date.now();
+        
+        // Clear movement history to prevent stale data from triggering reps
+        previousPositionsRef.current = [];
+        movementVelocityRef.current = [];
       }
 
       // Only perform exercise analysis if detection quality is good or better

@@ -202,10 +202,19 @@ export default function AnalysisInterface({
             console.warn(`⚠️ No recorded metrics found for session ${currentSessionId}, using live metrics as fallback`);
           }
           
+          console.log(`📤 [FRONTEND_DEBUG] Sending session end request for session ${currentSessionId}:`, sessionEndData);
           const result = await exerciseApi.endSession(currentSessionId, sessionEndData);
           
+          console.log(`📥 [FRONTEND_DEBUG] Session end API response:`, {
+            success: result.success,
+            data: result.data,
+            error: result.error
+          });
+          
           if (result.success) {
-            console.log(`✅ Successfully ended session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
+            console.log(`✅ [FRONTEND_DEBUG] Successfully ended session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
+          } else {
+            console.error(`❌ [FRONTEND_DEBUG] Failed to end session ${currentSessionId}:`, result.error);
           }
         } catch (error) {
           console.warn("Failed to end session properly:", error);

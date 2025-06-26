@@ -447,10 +447,10 @@ export default function AnalysisInterface({
                     <div className="flex justify-between items-center">
                       <span className="text-slate-300 text-lg">Angles</span>
                       <span className="text-blue-400 font-bold text-xl">
-                        {metrics.currentAngles && metrics.currentAngles.angles ? metrics.currentAngles.angles.map((angle, index) => (
+                        {metrics.currentAngles?.angles ? metrics.currentAngles.angles.map((angle, index) => (
                           <span key={angle.name}>
                             {angle.name} {Math.round(angle.value)}°
-                            {index < metrics.currentAngles.angles.length - 1 ? ' | ' : ''}
+                            {index < (metrics.currentAngles?.angles?.length || 0) - 1 ? ' | ' : ''}
                           </span>
                         )) : 'No angle data'}
                       </span>

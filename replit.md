@@ -113,6 +113,9 @@ Changelog:
 - June 23, 2025. Initial setup
 - June 23, 2025. Major rep detection improvements: Relaxed thresholds (squat 60-140°, pushup 30-130°), eliminated depth restrictions, encouraging feedback system, simplified detection logic, faster rep registration (300ms cooldown)
 - June 23, 2025. Database migration: Replaced in-memory storage with PostgreSQL using Drizzle ORM, ensuring data persistence across server restarts
+- June 26, 2025. Authentication system: Fixed WebSocket connectivity issues by switching from neon-serverless to postgres driver, all authentication features now working (registration, login, password reset, magic links)
+- June 26, 2025. Session data persistence: Fixed critical bug where session end used live metrics instead of aggregated recorded data, ensuring workout statistics survive to progress dashboard
+- June 26, 2025. Session management: Fixed camera detection loss creating multiple sessions by separating session lifecycle from detection status, ensuring single continuous session regardless of temporary detection failures
 ```
 
 ## User Preferences

@@ -1,4 +1,5 @@
-import { drizzle } from "drizzle-orm/neon-serverless";
+import { drizzle } from "drizzle-orm/postgres-js";
+import postgres from "postgres";
 import { eq, and, desc, lt, or, isNull } from "drizzle-orm";
 import { 
   users, 

@@ -401,27 +401,36 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
             exerciseStateRef.current = "down";
           }
         } else if (currentState === "down") {
-          // Detect coming back up - simplified logic
+          // Detect coming back up with enhanced validation and corruption protection
           if (current > config.upStateElbowAngle && 
               now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
             
-            // Much simpler movement range check
-            const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.elbowAngle);
-            const minRecentAngle = Math.min(...recentAngles);
-            const movementRange = current - minRecentAngle;
+            // STATE CORRUPTION FIX: Add stability checks to prevent false reps
+            const hasStableTracking = previousPositionsRef.current.length >= 3;
+            const recentTrackingStable = previousPositionsRef.current.slice(-3).every(p => 
+              Math.abs(p.elbowAngle - current) < 50 // Angles within reasonable range
+            );
             
-            // Very lenient rep validation
-            if (movementRange >= config.minMovementRange) {
-              currentState = "up";
-              exerciseStateRef.current = "up";
-              repCounterRef.current += 1;
-              lastRepTimeRef.current = now;
-              repDetected = true;
-              repFlashRef.current = true;
+            if (hasStableTracking && recentTrackingStable) {
+              // Much simpler movement range check
+              const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.elbowAngle);
+              const minRecentAngle = Math.min(...recentAngles);
+              const movementRange = current - minRecentAngle;
+              
+              // Very lenient rep validation with corruption protection
+              if (movementRange >= config.minMovementRange) {
+                console.log(`🎯 [REP_DEBUG] Push-up rep detected! Range: ${movementRange}°, Current: ${current}°, Min: ${minRecentAngle}°`);
+                currentState = "up";
+                exerciseStateRef.current = "up";
+                repCounterRef.current += 1;
+                lastRepTimeRef.current = now;
+                repDetected = true;
+                repFlashRef.current = true;
 
-              setTimeout(() => {
-                repFlashRef.current = false;
-              }, 800);
+                setTimeout(() => {
+                  repFlashRef.current = false;
+                }, 800);
+              }
             }
           }
         }

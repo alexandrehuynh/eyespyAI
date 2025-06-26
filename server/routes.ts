@@ -81,7 +81,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       console.log(`🔄 [SESSION_END_DEBUG] Updating session ${sessionId} in database...`);
       const updatedSession = await storage.updateSession(sessionId, {
         endTime: new Date(),
-        duration,
+        duration: duration, // This maps to duration_seconds in database
         totalReps,
         averageFormScore
       });

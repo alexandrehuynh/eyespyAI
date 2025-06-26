@@ -224,9 +224,21 @@ export class DatabaseStorage implements IStorage {
         return undefined;
       }
       
+      // CRITICAL FIX: Ensure proper column mapping for database update
+      const updateData = {
+        ...updates,
+        // Ensure proper data types and non-null values
+        ...(updates.endTime && { endTime: updates.endTime }),
+        ...(updates.duration !== undefined && { duration: Number(updates.duration) }),
+        ...(updates.totalReps !== undefined && { totalReps: Number(updates.totalReps) }),
+        ...(updates.averageFormScore !== undefined && { averageFormScore: Number(updates.averageFormScore) })
+      };
+      
+      console.log(`🔧 [DB_UPDATE_DEBUG] Mapped update data:`, updateData);
+      
       const result = await this.db
         .update(exerciseSessions)
-        .set(updates)
+        .set(updateData)
         .where(eq(exerciseSessions.id, id))
         .returning();
       

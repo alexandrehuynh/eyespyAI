@@ -213,6 +213,16 @@ export default function AnalysisInterface({
           
           if (result.success) {
             console.log(`✅ [FRONTEND_DEBUG] Successfully ended session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
+            
+            // DEBUGGING: Immediately verify session was saved by querying it back
+            setTimeout(async () => {
+              try {
+                const verificationResult = await exerciseApi.getUserSessions(1);
+                console.log(`🔍 [FRONTEND_DEBUG] Session verification - recent sessions:`, verificationResult.success ? verificationResult.data : 'Query failed');
+              } catch (error) {
+                console.error(`❌ [FRONTEND_DEBUG] Failed to verify session:`, error);
+              }
+            }, 1000);
           } else {
             console.error(`❌ [FRONTEND_DEBUG] Failed to end session ${currentSessionId}:`, result.error);
           }

@@ -1,9 +1,11 @@
+import { drizzle } from "drizzle-orm/neon-serverless";
+import { eq, and, desc } from "drizzle-orm";
 import { 
   users, 
-  exerciseSessions,
-  exerciseMetrics,
+  exerciseSessions, 
+  exerciseMetrics, 
   userProgress,
-  type User, 
+  type User,
   type InsertUser,
   type ExerciseSession,
   type InsertExerciseSession,
@@ -11,7 +13,7 @@ import {
   type InsertExerciseMetric,
   type UserProgress,
   type InsertUserProgress
-} from "@shared/schema";
+} from "../shared/schema";
 
 export interface IStorage {
   // User methods
@@ -35,136 +37,171 @@ export interface IStorage {
   updateUserProgress(userId: number, exerciseType: string, updates: Partial<UserProgress>): Promise<UserProgress>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<number, User>;
-  private sessions: Map<number, ExerciseSession>;
-  private metrics: Map<number, ExerciseMetric>;
-  private progress: Map<string, UserProgress>; // key: userId-exerciseType
-  private currentUserId: number;
-  private currentSessionId: number;
-  private currentMetricId: number;
-  private currentProgressId: number;
+// PostgreSQL Database Storage Implementation using Drizzle ORM
+export class DatabaseStorage implements IStorage {
+  private db;
 
   constructor() {
-    this.users = new Map();
-    this.sessions = new Map();
-    this.metrics = new Map();
-    this.progress = new Map();
-    this.currentUserId = 1;
-    this.currentSessionId = 1;
-    this.currentMetricId = 1;
-    this.currentProgressId = 1;
+    if (!process.env.DATABASE_URL) {
+      throw new Error("DATABASE_URL environment variable is required");
+    }
+    this.db = drizzle(process.env.DATABASE_URL);
   }
 
+  // User Management Methods
   async getUser(id: number): Promise<User | undefined> {
-    return this.users.get(id);
+    try {
+      const result = await this.db.select().from(users).where(eq(users.id, id)).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user:", error);
+      throw new Error("Failed to retrieve user");
+    }
   }
 
   async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+    try {
+      const result = await this.db.select().from(users).where(eq(users.username, username)).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user by username:", error);
+      throw new Error("Failed to retrieve user");
+    }
   }
 
   async createUser(insertUser: InsertUser): Promise<User> {
-    const id = this.currentUserId++;
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+    try {
+      const result = await this.db.insert(users).values(insertUser).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating user:", error);
+      throw new Error("Failed to create user");
+    }
   }
 
-  // Exercise session methods
+  // Exercise Session Methods
   async createSession(session: InsertExerciseSession): Promise<ExerciseSession> {
-    const id = this.currentSessionId++;
-    const exerciseSession: ExerciseSession = {
-      id,
-      userId: session.userId,
-      exerciseType: session.exerciseType,
-      startTime: new Date(),
-      endTime: null,
-      duration: null,
-      totalReps: 0,
-      averageFormScore: null,
-      cameraOrientation: session.cameraOrientation || null,
-    };
-    this.sessions.set(id, exerciseSession);
-    return exerciseSession;
+    try {
+      const result = await this.db.insert(exerciseSessions).values(session).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating session:", error);
+      throw new Error("Failed to create exercise session");
+    }
   }
 
   async getSession(id: number): Promise<ExerciseSession | undefined> {
-    return this.sessions.get(id);
+    try {
+      const result = await this.db.select().from(exerciseSessions).where(eq(exerciseSessions.id, id)).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting session:", error);
+      throw new Error("Failed to retrieve session");
+    }
   }
 
   async updateSession(id: number, updates: Partial<ExerciseSession>): Promise<ExerciseSession | undefined> {
-    const session = this.sessions.get(id);
-    if (!session) return undefined;
-    
-    const updatedSession = { ...session, ...updates };
-    this.sessions.set(id, updatedSession);
-    return updatedSession;
+    try {
+      const result = await this.db
+        .update(exerciseSessions)
+        .set(updates)
+        .where(eq(exerciseSessions.id, id))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating session:", error);
+      throw new Error("Failed to update session");
+    }
   }
 
   async getUserSessions(userId: number, limit = 10): Promise<ExerciseSession[]> {
-    return Array.from(this.sessions.values())
-      .filter(session => session.userId === userId)
-      .sort((a, b) => b.startTime.getTime() - a.startTime.getTime())
-      .slice(0, limit);
+    try {
+      const result = await this.db
+        .select()
+        .from(exerciseSessions)
+        .where(eq(exerciseSessions.userId, userId))
+        .orderBy(desc(exerciseSessions.startTime))
+        .limit(limit);
+      return result;
+    } catch (error) {
+      console.error("Error getting user sessions:", error);
+      throw new Error("Failed to retrieve user sessions");
+    }
   }
 
-  // Exercise metrics methods
+  // Exercise Metrics Methods
   async createMetric(metric: InsertExerciseMetric): Promise<ExerciseMetric> {
-    const id = this.currentMetricId++;
-    const exerciseMetric: ExerciseMetric = {
-      id,
-      sessionId: metric.sessionId,
-      timestamp: new Date(),
-      repNumber: metric.repNumber || null,
-      formScore: metric.formScore,
-      kneeAngle: metric.kneeAngle || null,
-      elbowAngle: metric.elbowAngle || null,
-      bodyLineAngle: metric.bodyLineAngle || null,
-      detectionQuality: metric.detectionQuality || null,
-    };
-    this.metrics.set(id, exerciseMetric);
-    return exerciseMetric;
+    try {
+      const result = await this.db.insert(exerciseMetrics).values(metric).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating metric:", error);
+      throw new Error("Failed to create metric");
+    }
   }
 
   async getSessionMetrics(sessionId: number): Promise<ExerciseMetric[]> {
-    return Array.from(this.metrics.values())
-      .filter(metric => metric.sessionId === sessionId)
-      .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+    try {
+      const result = await this.db
+        .select()
+        .from(exerciseMetrics)
+        .where(eq(exerciseMetrics.sessionId, sessionId))
+        .orderBy(exerciseMetrics.timestamp);
+      return result;
+    } catch (error) {
+      console.error("Error getting session metrics:", error);
+      throw new Error("Failed to retrieve session metrics");
+    }
   }
 
   async createMetricsBatch(metrics: InsertExerciseMetric[]): Promise<ExerciseMetric[]> {
-    const results: ExerciseMetric[] = [];
-    for (const metric of metrics) {
-      const result = await this.createMetric(metric);
-      results.push(result);
+    try {
+      if (metrics.length === 0) return [];
+      const result = await this.db.insert(exerciseMetrics).values(metrics).returning();
+      return result;
+    } catch (error) {
+      console.error("Error creating metrics batch:", error);
+      throw new Error("Failed to create metrics batch");
     }
-    return results;
   }
 
-  // User progress methods
+  // User Progress Methods
   async getUserProgress(userId: number, exerciseType?: string): Promise<UserProgress[]> {
-    const progressList = Array.from(this.progress.values())
-      .filter(progress => progress.userId === userId);
-    
-    if (exerciseType) {
-      return progressList.filter(progress => progress.exerciseType === exerciseType);
+    try {
+      if (exerciseType) {
+        const result = await this.db
+          .select()
+          .from(userProgress)
+          .where(and(eq(userProgress.userId, userId), eq(userProgress.exerciseType, exerciseType)));
+        return result;
+      } else {
+        const result = await this.db
+          .select()
+          .from(userProgress)
+          .where(eq(userProgress.userId, userId));
+        return result;
+      }
+    } catch (error) {
+      console.error("Error getting user progress:", error);
+      throw new Error("Failed to retrieve user progress");
     }
-    
-    return progressList;
   }
 
   async updateUserProgress(userId: number, exerciseType: string, updates: Partial<UserProgress>): Promise<UserProgress> {
-    const key = `${userId}-${exerciseType}`;
-    let progress = this.progress.get(key);
-    
-    if (!progress) {
-      // Create new progress record
-      const id = this.currentProgressId++;
-      progress = {
-        id,
+    try {
+      // First try to update existing record
+      const existingResult = await this.db
+        .update(userProgress)
+        .set(updates)
+        .where(and(eq(userProgress.userId, userId), eq(userProgress.exerciseType, exerciseType)))
+        .returning();
+
+      if (existingResult.length > 0) {
+        return existingResult[0];
+      }
+
+      // If no existing record, create new one
+      const newProgress: InsertUserProgress = {
         userId,
         exerciseType,
         totalSessions: 0,
@@ -173,14 +210,14 @@ export class MemStorage implements IStorage {
         lastSessionDate: null,
         ...updates,
       };
-    } else {
-      // Update existing progress
-      progress = { ...progress, ...updates };
+
+      const result = await this.db.insert(userProgress).values(newProgress).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating user progress:", error);
+      throw new Error("Failed to update user progress");
     }
-    
-    this.progress.set(key, progress);
-    return progress;
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();

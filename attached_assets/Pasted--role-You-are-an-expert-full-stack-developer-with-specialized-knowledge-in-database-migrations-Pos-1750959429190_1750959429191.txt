@@ -1,0 +1,122 @@
+<role>
+You are an expert full-stack developer with specialized knowledge in database migrations, PostgreSQL, Drizzle ORM, and Node.js backend development. You excel at refactoring storage layers while maintaining API compatibility and ensuring data persistence.
+</role>
+
+<task>
+Replace the current in-memory storage system with a PostgreSQL database using the existing Drizzle ORM setup. Migrate all storage operations from memory-based Maps to persistent database queries while maintaining the exact same interface for API compatibility.
+</task>
+
+<context>
+The application currently uses a `MemStorage` class that stores all data in memory, which is lost when the server restarts. A PostgreSQL database and Drizzle ORM schema are already configured but not actively used. The goal is to achieve full data persistence without breaking existing API endpoints.
+</context>
+
+<current_architecture>
+- **Storage Class**: `MemStorage` in `server/storage.ts` uses in-memory Maps
+- **Database**: PostgreSQL configured but unused
+- **ORM**: Drizzle ORM with schema defined in `shared/schema.ts`
+- **Environment**: `DATABASE_URL` available for connection
+- **API Layer**: Routes depend on storage interface remaining unchanged
+</current_architecture>
+
+<methodology>
+1. **Setup Phase**: Establish PostgreSQL connection using Drizzle and DATABASE_URL
+2. **Interface Analysis**: Review current MemStorage methods and their signatures
+3. **Migration Phase**: Convert each method from in-memory operations to database queries
+4. **Testing Phase**: Ensure all functionality works with persistent storage
+5. **Validation Phase**: Verify data persists across server restarts
+</methodology>
+
+<thinking>
+Before implementing, systematically plan:
+1. What database connection setup is needed for Drizzle with PostgreSQL?
+2. How should each MemStorage method be converted to use database queries?
+3. What error handling is needed for database operations?
+4. How can I ensure the interface remains exactly the same?
+5. What async/await patterns are required for database operations?
+6. How should database transactions be handled for data consistency?
+</thinking>
+
+<storage_methods_to_migrate>
+**User Management:**
+- `getUser(id: string)` - Retrieve user by ID
+- `getUserByUsername(username: string)` - Find user by username  
+- `createUser(userData)` - Create new user record
+
+**Session Management:**
+- `createSession(sessionData)` - Create workout session
+- `getSession(sessionId: string)` - Retrieve session details
+- `updateSession(sessionId: string, updates)` - Update session data
+- `getUserSessions(userId: string)` - Get all user sessions
+
+**Metrics Management:**
+- `createMetric(metricData)` - Record single metric
+- `getSessionMetrics(sessionId: string)` - Get session metrics
+- `createMetricsBatch(metricsArray)` - Bulk create metrics
+
+**Progress Tracking:**
+- `getUserProgress(userId: string)` - Get user progress data
+- `updateUserProgress(userId: string, progressData)` - Update progress
+</storage_methods_to_migrate>
+
+<implementation_requirements>
+**Database Connection:**
+- Use DATABASE_URL environment variable
+- Set up Drizzle client with PostgreSQL adapter
+- Handle connection errors gracefully
+
+**Code Structure:**
+- Replace MemStorage class entirely
+- Maintain exact same method signatures and return types
+- Preserve all existing functionality and behavior
+- Use proper async/await patterns for all database operations
+
+**Error Handling:**
+- Catch and handle database connection errors
+- Provide meaningful error messages for failed operations
+- Ensure graceful degradation when database is unavailable
+
+**Data Integrity:**
+- Use appropriate database transactions where needed
+- Ensure foreign key relationships are respected
+- Handle concurrent access scenarios properly
+</implementation_requirements>
+
+<output_format>
+Provide the complete refactored code with:
+
+1. **Updated storage.ts file** with PostgreSQL implementation
+2. **Database connection setup** using Drizzle
+3. **All 12 methods converted** to use database queries
+4. **Error handling** for database operations
+5. **Clear comments** explaining key changes
+6. **Instructions** for running `npm run db:push` to create tables
+
+Structure the response as:
+```typescript
+// Updated server/storage.ts with full PostgreSQL implementation
+```
+
+Include any additional configuration files or setup steps needed.
+</output_format>
+
+<constraints>
+- Maintain exact same interface - no changes to method signatures or return types
+- Use only the existing Drizzle ORM setup and schema
+- Connect via DATABASE_URL environment variable only
+- Ensure all API routes continue working without modification
+- Handle async operations properly with error catching
+- Preserve all current functionality and behavior
+- Use TypeScript with proper type safety
+- If any part of the existing schema is unclear, ask specific questions rather than making assumptions
+- Focus on production-ready code with proper error handling
+</constraints>
+
+<success_criteria>
+✅ All 12 storage methods successfully converted to database operations
+✅ Server can restart without losing any data
+✅ All existing API endpoints continue working unchanged  
+✅ Database tables created successfully with `npm run db:push`
+✅ User sessions, metrics, and progress data persist properly
+✅ Proper error handling for database connectivity issues
+✅ TypeScript compilation passes without errors
+</success_criteria>

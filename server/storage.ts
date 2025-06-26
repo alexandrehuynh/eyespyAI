@@ -168,17 +168,15 @@ export class DatabaseStorage implements IStorage {
   // User Progress Methods
   async getUserProgress(userId: number, exerciseType?: string): Promise<UserProgress[]> {
     try {
+      const baseQuery = this.db.select().from(userProgress);
+      
       if (exerciseType) {
-        const result = await this.db
-          .select()
-          .from(userProgress)
-          .where(and(eq(userProgress.userId, userId), eq(userProgress.exerciseType, exerciseType)));
+        const result = await baseQuery.where(
+          and(eq(userProgress.userId, userId), eq(userProgress.exerciseType, exerciseType))
+        );
         return result;
       } else {
-        const result = await this.db
-          .select()
-          .from(userProgress)
-          .where(eq(userProgress.userId, userId));
+        const result = await baseQuery.where(eq(userProgress.userId, userId));
         return result;
       }
     } catch (error) {

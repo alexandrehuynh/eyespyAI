@@ -112,6 +112,7 @@ EyeSpy AI is an AI-powered fitness tracking application that combines real-time 
 Changelog:
 - June 23, 2025. Initial setup
 - June 23, 2025. Major rep detection improvements: Relaxed thresholds (squat 60-140°, pushup 30-130°), eliminated depth restrictions, encouraging feedback system, simplified detection logic, faster rep registration (300ms cooldown)
+- June 23, 2025. Database migration: Replaced in-memory storage with PostgreSQL using Drizzle ORM, ensuring data persistence across server restarts
 ```
 
 ## User Preferences

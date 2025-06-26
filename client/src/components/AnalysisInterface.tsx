@@ -28,13 +28,16 @@ export default function AnalysisInterface({
   const [currentCameraId, setCurrentCameraId] = useState<string>('');
   const [camerasEnumerated, setCamerasEnumerated] = useState(false);
   
-  // Session management state
+  // Session management state - independent of detection status
   const [currentSessionId, setCurrentSessionId] = useState<number | null>(null);
   const [sessionStartTime, setSessionStartTime] = useState<Date | null>(null);
+  const [sessionActive, setSessionActive] = useState(false); // Track session lifecycle separately from detection
   const metricsBuffer = useRef<InsertExerciseMetric[]>([]);
   const lastMetricTime = useRef<number>(0);
+  const lastDetectionLogTime = useRef<number>(0);
   const METRIC_INTERVAL_MS = 1000; // Record metrics every second
   const BATCH_SIZE = 10; // Send metrics in batches of 10
+  const DETECTION_LOG_INTERVAL_MS = 5000; // Log detection status every 5 seconds
   
   // Set default camera orientation based on exercise type
   const getDefaultOrientation = (exercise: Exercise) => {
@@ -77,9 +80,9 @@ export default function AnalysisInterface({
   
   const { metrics, feedback, processPoseResultsCallback, repFlash } = usePoseDetection(selectedExercise, isActive);
 
-  // Start exercise session when analysis begins
+  // Start exercise session ONLY when user manually starts analysis (not based on detection)
   useEffect(() => {
-    if (isActive && !currentSessionId) {
+    if (isActive && !sessionActive) {
       const startSession = async () => {
         try {
           const result = await exerciseApi.startSession({
@@ -90,7 +93,8 @@ export default function AnalysisInterface({
           if (result.success && result.data) {
             setCurrentSessionId(result.data.sessionId);
             setSessionStartTime(new Date());
-            console.log(`Started exercise session ${result.data.sessionId} for ${selectedExercise}`);
+            setSessionActive(true);
+            console.log(`✅ Started NEW exercise session ${result.data.sessionId} for ${selectedExercise} (user initiated)`);
           }
         } catch (error) {
           console.warn("Failed to start session, continuing without database tracking:", error);
@@ -99,11 +103,11 @@ export default function AnalysisInterface({
       
       startSession();
     }
-  }, [isActive, selectedExercise, isPortraitMode, currentSessionId]);
+  }, [isActive, selectedExercise, isPortraitMode, sessionActive]);
 
-  // Record exercise metrics periodically
+  // Record exercise metrics periodically - only when person is detected
   useEffect(() => {
-    if (isActive && currentSessionId && metrics) {
+    if (isActive && currentSessionId && metrics && metrics.isPersonDetected) {
       const now = Date.now();
       
       // Only record metrics at specified intervals to avoid overwhelming the database
@@ -128,6 +132,8 @@ export default function AnalysisInterface({
         metricsBuffer.current.push(metric);
         lastMetricTime.current = now;
         
+        console.log(`Recording metric for session ${currentSessionId}: reps=${metrics.reps}, form=${metrics.formQuality}%, detection=${metrics.isPersonDetected}`);
+        
         // Send metrics in batches for efficiency
         if (metricsBuffer.current.length >= BATCH_SIZE) {
           const batchToSend = [...metricsBuffer.current];
@@ -143,16 +149,22 @@ export default function AnalysisInterface({
           });
         }
       }
+    } else if (isActive && currentSessionId && metrics && !metrics.isPersonDetected) {
+      // Log when metrics collection is paused due to detection loss
+      console.log(`Metrics collection paused for session ${currentSessionId}: person not detected`);
     }
   }, [isActive, currentSessionId, metrics, selectedExercise]);
 
-  // End session and finalize data when analysis stops
+  // End session ONLY when user manually stops analysis (not based on detection loss)
   useEffect(() => {
-    if (!isActive && currentSessionId && sessionStartTime) {
+    if (!isActive && sessionActive && currentSessionId && sessionStartTime) {
       const endSession = async () => {
         try {
+          console.log(`🛑 User stopped analysis - ending session ${currentSessionId}`);
+          
           // Send any remaining metrics in buffer
           if (metricsBuffer.current.length > 0) {
+            console.log(`📤 Sending final metrics batch: ${metricsBuffer.current.length} metrics`);
             await exerciseApi.recordMetricsBatch([...metricsBuffer.current]);
             metricsBuffer.current = [];
           }
@@ -178,7 +190,7 @@ export default function AnalysisInterface({
               averageFormScore: avgFormScore
             };
             
-            console.log(`Session ${currentSessionId} metrics summary: ${allMetrics.length} data points, max reps: ${maxReps}, avg form: ${avgFormScore}%`);
+            console.log(`📊 Session ${currentSessionId} final summary: ${allMetrics.length} data points, max reps: ${maxReps}, avg form: ${avgFormScore}%`);
           } else {
             // Fallback to live metrics if no recorded metrics found
             sessionEndData = {
@@ -187,19 +199,22 @@ export default function AnalysisInterface({
               averageFormScore: Math.round(metrics?.formQuality || 0)
             };
             
-            console.warn(`No recorded metrics found for session ${currentSessionId}, using live metrics as fallback`);
+            console.warn(`⚠️ No recorded metrics found for session ${currentSessionId}, using live metrics as fallback`);
           }
           
           const result = await exerciseApi.endSession(currentSessionId, sessionEndData);
           
           if (result.success) {
-            console.log(`Ended exercise session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
+            console.log(`✅ Successfully ended session ${currentSessionId} - ${duration}s, ${sessionEndData.totalReps} reps, ${sessionEndData.averageFormScore}% form`);
           }
         } catch (error) {
           console.warn("Failed to end session properly:", error);
         } finally {
+          // Clear session state only after successful completion
           setCurrentSessionId(null);
           setSessionStartTime(null);
+          setSessionActive(false);
+          console.log(`🧹 Cleared session state`);
         }
       };
       

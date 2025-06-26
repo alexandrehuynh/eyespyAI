@@ -1,0 +1,261 @@
+<role>
+You are an expert full-stack authentication engineer with specialized expertise in secure user authentication flows, email-based authentication systems, PostgreSQL database design, and modern React UI/UX patterns. You excel at implementing production-ready authentication features while maintaining security best practices and consistent user experiences.
+</role>
+
+<task>
+Implement a complete password reset and magic link authentication system that integrates seamlessly with the existing bcrypt + express-session architecture. Add secure token-based email flows while maintaining the current dark fitness theme and ensuring production-grade security standards.
+</task>
+
+<context>
+The application currently has a basic authentication system that needs enhancement with email-based authentication flows. The system must maintain backward compatibility with existing authentication while adding modern passwordless options and password recovery capabilities.
+</context>
+
+<existing_architecture>
+**Backend:**
+- Authentication: `server/auth.ts` with bcrypt + express-session
+- Database: PostgreSQL + Drizzle ORM 
+- Schema: Users table defined in `shared/schema.ts`
+- API: RESTful endpoints following existing patterns
+
+**Frontend:**
+- Framework: React + TypeScript
+- Styling: Tailwind CSS with dark fitness theme
+- Auth UI: `client/src/components/auth/AuthForm.tsx`
+- State: Existing authentication state management
+- Toast: Existing success/error messaging system
+</existing_architecture>
+
+<features_to_implement>
+**1. Password Reset Flow:**
+- Secure token generation and storage
+- Email delivery with reset links
+- Token validation and expiration handling
+- Password reset form with validation
+- Complete user journey from request to completion
+
+**2. Magic Link Authentication:**
+- Passwordless login via email
+- Secure token-based authentication
+- One-time use link generation
+- Auto-login after successful verification
+- Fallback to regular login if needed
+
+**3. Database Enhancements:**
+- Password reset tokens table with expiration
+- Magic link tokens table with usage tracking
+- Proper indexes and relationships
+- Migration strategy for existing data
+
+**4. Email Service Integration:**
+- Recommend appropriate transactional email service
+- Email templates for reset and magic links
+- Rate limiting and spam prevention
+- Delivery confirmation and retry logic
+
+**5. Security Implementation:**
+- Cryptographically secure token generation
+- Token expiration and cleanup
+- Rate limiting on email requests
+- CSRF protection for forms
+- Input validation and sanitization
+</features_to_implement>
+
+<methodology>
+1. **Database Schema Design**: Create secure token storage tables with proper relationships
+2. **Email Service Setup**: Configure transactional email service with templates
+3. **Backend API Development**: Implement secure token generation, validation, and authentication flows
+4. **Frontend UI Integration**: Add new authentication options while maintaining existing design
+5. **Security Hardening**: Implement rate limiting, token expiration, and validation
+6. **User Flow Testing**: Ensure smooth user experience across all authentication paths
+7. **Error Handling**: Comprehensive error states and user feedback
+</methodology>
+
+<thinking>
+Before implementing, systematically plan:
+1. What database schema changes are needed for secure token storage?
+2. Which email service provider offers the best balance of reliability, cost, and features?
+3. How should tokens be generated to ensure cryptographic security?
+4. What rate limiting strategies prevent abuse while maintaining usability?
+5. How can the UI changes integrate seamlessly with the existing dark fitness theme?
+6. What error states need handling and how should they be communicated to users?
+7. How should token cleanup and expiration be managed efficiently?
+8. What security considerations are critical for production deployment?
+</thinking>
+
+<user_flows>
+**Password Reset Journey:**
+1. User clicks "Forgot Password?" on login form
+2. User enters email address on reset request page
+3. System validates email and sends reset link (if account exists)
+4. User receives email with time-limited reset link
+5. User clicks link and is directed to secure reset form
+6. User enters new password with confirmation
+7. System validates token, updates password, invalidates token
+8. User is redirected to login with success message
+
+**Magic Link Authentication Journey:**
+1. User chooses "Sign in with Magic Link" option
+2. User enters email address
+3. System generates secure one-time link and sends email
+4. User receives email with magic link
+5. User clicks link and is automatically authenticated
+6. System validates token, creates session, invalidates token
+7. User is redirected to dashboard/app with success message
+
+**Error Handling Scenarios:**
+- Expired tokens (graceful degradation to regular login)
+- Invalid tokens (clear error messaging)
+- Non-existent email addresses (security-conscious responses)
+- Rate limit exceeded (clear timeout messaging)
+- Email delivery failures (retry options and alternatives)
+</user_flows>
+
+<ui_requirements>
+**Design Consistency:**
+- Maintain existing dark fitness theme color palette
+- Use consistent typography and spacing patterns
+- Follow existing form styling and validation patterns
+- Integrate with current toast notification system
+
+**New UI Components Needed:**
+- "Forgot Password?" link (subtle, below login button)
+- "Sign in with Magic Link" button (prominent, modern styling)
+- Password reset request form page
+- Password reset completion form page
+- Email confirmation/waiting states
+- Success and error state messaging
+
+**Accessibility & UX:**
+- Proper form labels and ARIA attributes
+- Loading states for email sending
+- Clear progress indication in multi-step flows
+- Mobile-responsive design matching existing patterns
+- Keyboard navigation support
+</ui_requirements>
+
+<security_requirements>
+**Token Security:**
+- Use cryptographically secure random token generation (32+ bytes)
+- Implement time-based expiration (15 minutes for password reset, 5 minutes for magic links)
+- Ensure tokens are single-use only
+- Store hashed versions of tokens in database
+- Implement secure token comparison to prevent timing attacks
+
+**Rate Limiting:**
+- Limit password reset requests: 3 per hour per email
+- Limit magic link requests: 5 per hour per email
+- Implement IP-based rate limiting as additional protection
+- Use exponential backoff for repeated failed attempts
+
+**Data Protection:**
+- Validate and sanitize all email inputs
+- Implement CSRF protection on all forms
+- Use HTTPS for all authentication endpoints
+- Log security events without exposing sensitive data
+- Automatic cleanup of expired tokens
+</security_requirements>
+
+<email_service_recommendation>
+**Recommended Service**: Resend or SendGrid
+**Rationale**: 
+- Developer-friendly APIs with good TypeScript support
+- Reliable delivery rates and reputation management
+- Template management capabilities
+- Reasonable pricing for applications
+- Good integration with Node.js applications
+
+**Required Email Templates:**
+1. Password reset email with secure link
+2. Magic link authentication email
+3. Optional: Account security notification for password changes
+</email_service_recommendation>
+
+<implementation_deliverables>
+**Database Changes:**
+- Updated schema with token tables
+- Database migration scripts
+- Proper indexes for performance
+
+**Backend Implementation:**
+- Enhanced `server/auth.ts` with new endpoints
+- Token generation and validation utilities
+- Email service integration
+- Rate limiting middleware
+- Security validation functions
+
+**Frontend Implementation:**
+- Updated `AuthForm.tsx` with new options
+- Password reset request page
+- Password reset completion page
+- Email confirmation states
+- Integrated error handling
+
+**Configuration:**
+- Environment variables for email service
+- Security configuration constants
+- Email template setup
+</implementation_deliverables>
+
+<output_format>
+Provide complete implementation including:
+
+**1. Database Schema Updates:**
+```sql
+-- Migration script for new token tables
+```
+
+**2. Backend Authentication Enhancement:**
+```typescript
+// Updated server/auth.ts with new endpoints and functionality
+```
+
+**3. Email Service Integration:**
+```typescript
+// Email service setup and template management
+```
+
+**4. Frontend UI Components:**
+```typescript
+// Updated AuthForm.tsx and new password reset components
+```
+
+**5. Security Utilities:**
+```typescript
+// Token generation, validation, and rate limiting utilities
+```
+
+**6. Configuration Setup:**
+```typescript
+// Environment variables and configuration constants
+```
+
+Include detailed comments explaining security considerations, user flow logic, and integration points with existing systems.
+</output_format>
+
+<constraints>
+- Maintain backward compatibility with existing authentication system
+- Use only the existing tech stack (React, Tailwind, PostgreSQL, Drizzle, Express)
+- Follow existing TypeScript patterns and code organization
+- Preserve existing UI/UX patterns and dark fitness theme
+- Implement production-ready security standards
+- Ensure proper error handling and user feedback
+- Use existing toast notification system for user messaging
+- If any existing code patterns are unclear, ask for clarification rather than assuming
+- Focus on clean, maintainable code with proper separation of concerns
+- Include comprehensive error states and edge case handling
+</constraints>
+
+<success_criteria>
+✅ Password reset flow works securely from email to password update
+✅ Magic link authentication provides seamless passwordless login
+✅ Database schema properly stores and manages authentication tokens
+✅ Email service reliably delivers authentication emails
+✅ UI maintains consistent dark fitness theme and existing patterns
+✅ Rate limiting prevents abuse while maintaining good user experience
+✅ Security measures protect against common authentication vulnerabilities
+✅ All error states provide clear, helpful user feedback
+✅ Token expiration and cleanup work automatically
+✅ Existing authentication functionality remains unchanged
+✅ Mobile responsive design works across all new components
+✅ TypeScript compilation passes without errors
+</success_criteria>

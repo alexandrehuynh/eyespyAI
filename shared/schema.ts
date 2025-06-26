@@ -6,6 +6,18 @@ export const users = pgTable("users", {
   id: serial("id").primaryKey(),
   username: text("username").notNull().unique(),
   password: text("password").notNull(),
+  email: text("email").unique(),
+});
+
+// Authentication Tokens Table - For password reset and magic links
+export const authTokens = pgTable("auth_tokens", {
+  id: serial("id").primaryKey(),
+  userId: integer("user_id").notNull().references(() => users.id),
+  tokenHash: text("token_hash").notNull().unique(),
+  tokenType: text("token_type").notNull(), // 'password_reset' or 'magic_link'
+  expiresAt: timestamp("expires_at").notNull(),
+  usedAt: timestamp("used_at"),
+  createdAt: timestamp("created_at").defaultNow().notNull(),
 });
 
 // Exercise Sessions Table
@@ -65,12 +77,44 @@ export const insertUserProgressSchema = createInsertSchema(userProgress).omit({
   id: true,
 });
 
+export const insertAuthTokenSchema = createInsertSchema(authTokens).omit({
+  id: true,
+  createdAt: true,
+});
+
+// Enhanced user schema with email for registration
+export const insertUserWithEmailSchema = createInsertSchema(users).pick({
+  username: true,
+  password: true,
+  email: true,
+});
+
+// Password reset schemas
+export const passwordResetRequestSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
+export const passwordResetConfirmSchema = z.object({
+  token: z.string().min(1, "Token is required"),
+  password: z.string().min(8, "Password must be at least 8 characters"),
+});
+
+export const magicLinkRequestSchema = z.object({
+  email: z.string().email("Invalid email address"),
+});
+
 // Types
 export type InsertUser = z.infer<typeof insertUserSchema>;
+export type InsertUserWithEmail = z.infer<typeof insertUserWithEmailSchema>;
 export type User = typeof users.$inferSelect;
+export type AuthToken = typeof authTokens.$inferSelect;
+export type InsertAuthToken = z.infer<typeof insertAuthTokenSchema>;
 export type ExerciseSession = typeof exerciseSessions.$inferSelect;
 export type InsertExerciseSession = z.infer<typeof insertExerciseSessionSchema>;
 export type ExerciseMetric = typeof exerciseMetrics.$inferSelect;
 export type InsertExerciseMetric = z.infer<typeof insertExerciseMetricSchema>;
 export type UserProgress = typeof userProgress.$inferSelect;
 export type InsertUserProgress = z.infer<typeof insertUserProgressSchema>;
+export type PasswordResetRequest = z.infer<typeof passwordResetRequestSchema>;
+export type PasswordResetConfirm = z.infer<typeof passwordResetConfirmSchema>;
+export type MagicLinkRequest = z.infer<typeof magicLinkRequestSchema>;

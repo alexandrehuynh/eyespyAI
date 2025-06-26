@@ -5,21 +5,34 @@ import {
   exerciseSessions, 
   exerciseMetrics, 
   userProgress,
+  authTokens,
   type User,
   type InsertUser,
+  type InsertUserWithEmail,
   type ExerciseSession,
   type InsertExerciseSession,
   type ExerciseMetric,
   type InsertExerciseMetric,
   type UserProgress,
-  type InsertUserProgress
+  type InsertUserProgress,
+  type AuthToken,
+  type InsertAuthToken
 } from "../shared/schema";
 
 export interface IStorage {
   // User methods
   getUser(id: number): Promise<User | undefined>;
   getUserByUsername(username: string): Promise<User | undefined>;
+  getUserByEmail(email: string): Promise<User | undefined>;
   createUser(user: InsertUser): Promise<User>;
+  createUserWithEmail(user: InsertUserWithEmail): Promise<User>;
+  updateUserPassword(userId: number, hashedPassword: string): Promise<User | undefined>;
+  
+  // Authentication token methods
+  createAuthToken(token: InsertAuthToken): Promise<AuthToken>;
+  getAuthToken(tokenHash: string, tokenType: string): Promise<AuthToken | undefined>;
+  markTokenAsUsed(tokenId: number): Promise<AuthToken | undefined>;
+  cleanupExpiredTokens(): Promise<void>;
   
   // Exercise session methods
   createSession(session: InsertExerciseSession): Promise<ExerciseSession>;
@@ -76,6 +89,99 @@ export class DatabaseStorage implements IStorage {
     } catch (error) {
       console.error("Error creating user:", error);
       throw new Error("Failed to create user");
+    }
+  }
+
+  async getUserByEmail(email: string): Promise<User | undefined> {
+    try {
+      const result = await this.db.select().from(users).where(eq(users.email, email)).limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting user by email:", error);
+      throw new Error("Failed to retrieve user");
+    }
+  }
+
+  async createUserWithEmail(insertUser: InsertUserWithEmail): Promise<User> {
+    try {
+      const result = await this.db.insert(users).values(insertUser).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating user with email:", error);
+      throw new Error("Failed to create user");
+    }
+  }
+
+  async updateUserPassword(userId: number, hashedPassword: string): Promise<User | undefined> {
+    try {
+      const result = await this.db
+        .update(users)
+        .set({ password: hashedPassword })
+        .where(eq(users.id, userId))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error updating user password:", error);
+      throw new Error("Failed to update password");
+    }
+  }
+
+  // Authentication Token Methods
+  async createAuthToken(token: InsertAuthToken): Promise<AuthToken> {
+    try {
+      const result = await this.db.insert(authTokens).values(token).returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error creating auth token:", error);
+      throw new Error("Failed to create authentication token");
+    }
+  }
+
+  async getAuthToken(tokenHash: string, tokenType: string): Promise<AuthToken | undefined> {
+    try {
+      const result = await this.db
+        .select()
+        .from(authTokens)
+        .where(and(
+          eq(authTokens.tokenHash, tokenHash),
+          eq(authTokens.tokenType, tokenType)
+        ))
+        .limit(1);
+      return result[0];
+    } catch (error) {
+      console.error("Error getting auth token:", error);
+      throw new Error("Failed to retrieve authentication token");
+    }
+  }
+
+  async markTokenAsUsed(tokenId: number): Promise<AuthToken | undefined> {
+    try {
+      const result = await this.db
+        .update(authTokens)
+        .set({ usedAt: new Date() })
+        .where(eq(authTokens.id, tokenId))
+        .returning();
+      return result[0];
+    } catch (error) {
+      console.error("Error marking token as used:", error);
+      throw new Error("Failed to mark token as used");
+    }
+  }
+
+  async cleanupExpiredTokens(): Promise<void> {
+    try {
+      const now = new Date();
+      await this.db
+        .delete(authTokens)
+        .where(
+          and(
+            eq(authTokens.expiresAt < now as any, true),
+            eq(authTokens.usedAt !== null as any, true)
+          )
+        );
+    } catch (error) {
+      console.error("Error cleaning up expired tokens:", error);
+      // Don't throw error for cleanup operations
     }
   }
 

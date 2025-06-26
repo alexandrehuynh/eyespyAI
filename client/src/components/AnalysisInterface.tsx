@@ -114,14 +114,14 @@ export default function AnalysisInterface({
           repNumber: metrics.reps,
           detectionQuality: metrics.detectionQuality,
           // Exercise-specific angle data
-          ...(selectedExercise === 'squat' && metrics.currentAngles && {
-            kneeAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          ...(selectedExercise === 'squat' && metrics.currentAngles?.angles?.[0] && {
+            kneeAngle: Math.round(metrics.currentAngles.angles[0].value || 0)
           }),
-          ...(selectedExercise === 'pushup' && metrics.currentAngles && {
-            elbowAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          ...(selectedExercise === 'pushup' && metrics.currentAngles?.angles?.[0] && {
+            elbowAngle: Math.round(metrics.currentAngles.angles[0].value || 0)
           }),
-          ...(selectedExercise === 'plank' && metrics.currentAngles && {
-            bodyLineAngle: Math.round(metrics.currentAngles.angles[0]?.value || 0)
+          ...(selectedExercise === 'plank' && metrics.currentAngles?.angles?.[0] && {
+            bodyLineAngle: Math.round(metrics.currentAngles.angles[0].value || 0)
           })
         };
         
@@ -132,6 +132,11 @@ export default function AnalysisInterface({
         if (metricsBuffer.current.length >= BATCH_SIZE) {
           const batchToSend = [...metricsBuffer.current];
           metricsBuffer.current = [];
+          
+          console.log(`Recording metrics batch for session ${currentSessionId}:`, {
+            batchSize: batchToSend.length,
+            latestMetric: batchToSend[batchToSend.length - 1]
+          });
           
           exerciseApi.recordMetricsBatch(batchToSend).catch(error => {
             console.warn("Failed to record metrics batch:", error);
@@ -152,13 +157,38 @@ export default function AnalysisInterface({
             metricsBuffer.current = [];
           }
           
-          // Calculate session summary
+          // Calculate duration
           const duration = Math.round((Date.now() - sessionStartTime.getTime()) / 1000);
-          const sessionEndData = {
-            duration,
-            totalReps: metrics?.reps || 0,
-            averageFormScore: Math.round(metrics?.formQuality || 0)
-          };
+          
+          // Get all recorded metrics for this session to calculate accurate summary
+          const metricsResult = await exerciseApi.getSessionMetrics(currentSessionId);
+          
+          let sessionEndData;
+          if (metricsResult.success && metricsResult.data && metricsResult.data.length > 0) {
+            // Calculate aggregate statistics from all recorded metrics
+            const allMetrics = metricsResult.data;
+            const maxReps = Math.max(...allMetrics.map(m => m.repNumber || 0));
+            const avgFormScore = Math.round(
+              allMetrics.reduce((sum, m) => sum + (m.formScore || 0), 0) / allMetrics.length
+            );
+            
+            sessionEndData = {
+              duration,
+              totalReps: maxReps,
+              averageFormScore: avgFormScore
+            };
+            
+            console.log(`Session ${currentSessionId} metrics summary: ${allMetrics.length} data points, max reps: ${maxReps}, avg form: ${avgFormScore}%`);
+          } else {
+            // Fallback to live metrics if no recorded metrics found
+            sessionEndData = {
+              duration,
+              totalReps: metrics?.reps || 0,
+              averageFormScore: Math.round(metrics?.formQuality || 0)
+            };
+            
+            console.warn(`No recorded metrics found for session ${currentSessionId}, using live metrics as fallback`);
+          }
           
           const result = await exerciseApi.endSession(currentSessionId, sessionEndData);
           

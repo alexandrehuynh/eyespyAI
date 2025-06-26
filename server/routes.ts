@@ -47,6 +47,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = parseInt(req.params.id);
       const { duration, totalReps, averageFormScore } = req.body;
       
+      console.log(`Ending session ${sessionId} with data:`, { duration, totalReps, averageFormScore });
+      
       // Verify session belongs to authenticated user
       const session = await storage.getSession(sessionId);
       if (!session || session.userId !== req.session.userId) {
@@ -56,11 +58,31 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
       
+      console.log(`Session ${sessionId} before update:`, {
+        id: session.id,
+        exerciseType: session.exerciseType,
+        startTime: session.startTime,
+        endTime: session.endTime,
+        duration: session.duration,
+        totalReps: session.totalReps,
+        averageFormScore: session.averageFormScore
+      });
+      
       const updatedSession = await storage.updateSession(sessionId, {
         endTime: new Date(),
         duration,
         totalReps,
         averageFormScore
+      });
+      
+      console.log(`Session ${sessionId} after update:`, {
+        id: updatedSession?.id,
+        exerciseType: updatedSession?.exerciseType,
+        startTime: updatedSession?.startTime,
+        endTime: updatedSession?.endTime,
+        duration: updatedSession?.duration,
+        totalReps: updatedSession?.totalReps,
+        averageFormScore: updatedSession?.averageFormScore
       });
 
       if (!updatedSession) {
@@ -160,6 +182,9 @@ export async function registerRoutes(app: Express): Promise<Server> {
         });
       }
 
+      console.log(`Recording metrics batch: ${metrics.length} metrics`);
+      console.log('Sample metrics:', metrics.slice(0, 2));
+
       const validatedMetrics = metrics.map(metric => 
         insertExerciseMetricSchema.parse(metric)
       );
@@ -176,6 +201,7 @@ export async function registerRoutes(app: Express): Promise<Server> {
       }
       
       const savedMetrics = await storage.createMetricsBatch(validatedMetrics);
+      console.log(`Successfully saved ${savedMetrics.length} metrics for session ${validatedMetrics[0]?.sessionId}`);
       res.json({ success: true, data: savedMetrics });
     } catch (error) {
       console.error("Error creating metrics batch:", error);

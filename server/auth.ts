@@ -178,12 +178,14 @@ export function registerAuthRoutes(app: Express) {
         });
       }
 
-      const existingEmail = await storage.getUserByEmail(email);
-      if (existingEmail) {
-        return res.status(400).json({
-          success: false,
-          error: "Email already registered"
-        });
+      if (email) {
+        const existingEmail = await storage.getUserByEmail(email);
+        if (existingEmail) {
+          return res.status(400).json({
+            success: false,
+            error: "Email already registered"
+          });
+        }
       }
       
       // Hash password
@@ -193,7 +195,7 @@ export function registerAuthRoutes(app: Express) {
       const user = await storage.createUserWithEmail({
         username,
         password: hashedPassword,
-        email: AuthUtils.sanitizeEmail(email)
+        email: email ? AuthUtils.sanitizeEmail(email) : ""
       });
       
       // Create session

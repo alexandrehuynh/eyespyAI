@@ -47,27 +47,38 @@ export async function registerRoutes(app: Express): Promise<Server> {
       const sessionId = parseInt(req.params.id);
       const { duration, totalReps, averageFormScore } = req.body;
       
-      console.log(`Ending session ${sessionId} with data:`, { duration, totalReps, averageFormScore });
+      console.log(`🔚 [SESSION_END_DEBUG] Starting session end process for ID: ${sessionId}`);
+      console.log(`📤 [SESSION_END_DEBUG] Request payload:`, { 
+        duration, 
+        totalReps, 
+        averageFormScore,
+        userId: req.session.userId,
+        timestamp: new Date().toISOString()
+      });
       
       // Verify session belongs to authenticated user
       const session = await storage.getSession(sessionId);
       if (!session || session.userId !== req.session.userId) {
+        console.error(`❌ [SESSION_END_DEBUG] Session ${sessionId} not found or unauthorized. Session exists: ${!!session}, User match: ${session?.userId === req.session.userId}`);
         return res.status(404).json({ 
           success: false, 
           error: "Session not found" 
         });
       }
       
-      console.log(`Session ${sessionId} before update:`, {
+      console.log(`🔍 [SESSION_END_DEBUG] Session ${sessionId} before update:`, {
         id: session.id,
         exerciseType: session.exerciseType,
         startTime: session.startTime,
         endTime: session.endTime,
         duration: session.duration,
         totalReps: session.totalReps,
-        averageFormScore: session.averageFormScore
+        averageFormScore: session.averageFormScore,
+
+        userId: session.userId
       });
       
+      console.log(`🔄 [SESSION_END_DEBUG] Updating session ${sessionId} in database...`);
       const updatedSession = await storage.updateSession(sessionId, {
         endTime: new Date(),
         duration,
@@ -75,7 +86,8 @@ export async function registerRoutes(app: Express): Promise<Server> {
         averageFormScore
       });
       
-      console.log(`Session ${sessionId} after update:`, {
+      console.log(`✅ [SESSION_END_DEBUG] Session ${sessionId} after update:`, {
+        success: !!updatedSession,
         id: updatedSession?.id,
         exerciseType: updatedSession?.exerciseType,
         startTime: updatedSession?.startTime,

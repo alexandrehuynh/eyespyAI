@@ -205,14 +205,45 @@ export class DatabaseStorage implements IStorage {
 
   async updateSession(id: number, updates: Partial<ExerciseSession>): Promise<ExerciseSession | undefined> {
     try {
+      console.log(`🔄 [DB_UPDATE_DEBUG] Updating session ${id} with:`, updates);
+      
+      // First verify the session exists
+      const existingSession = await this.db
+        .select()
+        .from(exerciseSessions)
+        .where(eq(exerciseSessions.id, id))
+        .limit(1);
+      
+      console.log(`🔍 [DB_UPDATE_DEBUG] Session ${id} exists in DB:`, {
+        found: existingSession.length > 0,
+        current: existingSession[0] || null
+      });
+      
+      if (existingSession.length === 0) {
+        console.error(`❌ [DB_UPDATE_DEBUG] Session ${id} not found in database`);
+        return undefined;
+      }
+      
       const result = await this.db
         .update(exerciseSessions)
         .set(updates)
         .where(eq(exerciseSessions.id, id))
         .returning();
+      
+      console.log(`✅ [DB_UPDATE_DEBUG] Session ${id} updated successfully:`, result[0]);
+      
+      // Verify the update was persisted
+      const verificationQuery = await this.db
+        .select()
+        .from(exerciseSessions)
+        .where(eq(exerciseSessions.id, id))
+        .limit(1);
+      
+      console.log(`🔍 [DB_UPDATE_DEBUG] Session ${id} verification after update:`, verificationQuery[0]);
+      
       return result[0];
     } catch (error) {
-      console.error("Error updating session:", error);
+      console.error(`❌ [DB_UPDATE_DEBUG] Error updating session ${id}:`, error);
       throw new Error("Failed to update session");
     }
   }

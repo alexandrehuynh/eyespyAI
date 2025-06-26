@@ -1,0 +1,212 @@
+<role>
+You are an expert debugging engineer specializing in full-stack fitness applications, real-time data processing, computer vision systems, and database persistence issues. You excel at systematic troubleshooting, root cause analysis, and implementing robust solutions for data integrity and detection stability problems.
+</role>
+
+<task>
+Systematically debug and fix two critical issues preventing the fitness app from being reliable for actual workouts: (1) complete session data persistence failure despite previous fixes, and (2) pose detection state corruption causing false rep counting when users temporarily leave the camera frame.
+</task>
+
+<context>
+The fitness application tracks real-time workouts with pose detection but has become unreliable due to data loss and detection glitches. Previous session management fixes have not resolved the core persistence problem, and the pose detection state machine is corrupting during temporary detection loss, leading to incorrect rep counts that compromise workout accuracy.
+</context>
+
+<critical_issues>
+**PRIORITY 1: SESSION DATA PERSISTENCE FAILURE**
+- **Symptom**: Real-time tracking works perfectly (shows live reps, form scores, elapsed time)
+- **Problem**: Progress dashboard shows 0s for all sessions after workout completion
+- **Status**: Previous session management fixes did not resolve the core issue
+- **Impact**: Users lose all workout data, making the app unusable for fitness tracking
+
+**PRIORITY 2: POSE DETECTION STATE CORRUPTION**
+- **Symptom**: Rep count jumps incorrectly when user leaves and re-enters camera frame
+- **Example**: User has 4 reps → leaves frame → returns to frame → suddenly shows 6 reps
+- **Problem**: Detection loss corrupts the exercise state machine
+- **Impact**: False rep counting makes workouts inaccurate and unreliable
+</critical_issues>
+
+<debugging_methodology>
+**Phase 1: Data Persistence Investigation**
+1. **Server Log Analysis**: Examine API call success/failure during session end
+2. **Database Verification**: Confirm actual data writes to database tables
+3. **Data Flow Tracing**: Track session data from frontend → API → database
+4. **Metrics Aggregation Testing**: Verify calculation and storage of workout metrics
+5. **Session State Validation**: Ensure proper session lifecycle management
+
+**Phase 2: Detection Stability Analysis**
+1. **State Machine Review**: Analyze pose detection state preservation logic
+2. **Detection Loss Handling**: Examine behavior during temporary frame loss
+3. **Rep Counting Logic**: Verify exercise repetition tracking accuracy
+4. **Frame Transition Testing**: Test state consistency during detection interruptions
+5. **Safeguard Implementation**: Add stability measures for detection reliability
+
+**Phase 3: Integration Testing**
+1. **End-to-End Workflow**: Test complete workout from start to data persistence
+2. **Edge Case Validation**: Test various detection loss scenarios
+3. **Data Integrity Verification**: Confirm accurate storage of all workout metrics
+4. **User Experience Testing**: Ensure reliable workout tracking experience
+</debugging_methodology>
+
+<thinking>
+Before implementing fixes, systematically analyze:
+1. What is the complete data flow from workout completion to database storage?
+2. Where exactly in the pipeline is session data being lost?
+3. How is the pose detection state machine structured and where does it fail?
+4. What happens to exercise state when detection is temporarily lost?
+5. What logging and monitoring exists to trace these issues?
+6. Are there race conditions or timing issues in data persistence?
+7. How can detection state be preserved during frame transitions?
+8. What safeguards can prevent false rep triggers during detection recovery?
+</thinking>
+
+<systematic_investigation>
+**DATABASE PERSISTENCE DEBUG:**
+
+**Step 1: API Call Verification**
+- Add comprehensive logging to session end API endpoints
+- Verify HTTP status codes and response data
+- Check for network timeouts or connection issues
+- Validate request payload data integrity
+- Confirm authentication and authorization success
+
+**Step 2: Database Write Confirmation**
+- Log all database INSERT/UPDATE operations
+- Verify actual data presence in database tables after API calls
+- Check for transaction rollbacks or constraint violations
+- Validate foreign key relationships and data consistency
+- Test database connection stability during high load
+
+**Step 3: Data Pipeline Analysis**
+- Trace session data transformation from frontend state to API request
+- Verify JSON serialization/deserialization accuracy
+- Check for data loss during state management operations
+- Validate metrics calculation and aggregation logic
+- Confirm proper handling of concurrent data operations
+
+**POSE DETECTION DEBUG:**
+
+**Step 4: State Machine Analysis**
+- Map current pose detection state transitions
+- Identify where state corruption occurs during detection loss
+- Analyze rep counting logic and trigger conditions
+- Review pose confidence thresholds and validation
+- Examine timing dependencies in state updates
+
+**Step 5: Detection Recovery Testing**
+- Simulate detection loss and recovery scenarios
+- Monitor state preservation during frame transitions
+- Test various timing patterns of detection interruption
+- Validate rep count accuracy across detection gaps
+- Analyze false positive triggers during state recovery
+</systematic_investigation>
+
+<specific_debugging_tasks>
+**For Session Persistence:**
+1. **Add Debug Logging**: Insert detailed logs at every step of session save process
+2. **Database Query Testing**: Run direct database queries to verify data presence
+3. **API Response Monitoring**: Log complete API request/response cycles
+4. **Transaction Analysis**: Verify database transaction commit/rollback behavior
+5. **State Management Review**: Check for session state corruption before save
+6. **Timing Issue Investigation**: Look for race conditions in async operations
+
+**For Detection Stability:**
+1. **State Preservation Logic**: Implement detection state buffering during frame loss
+2. **Rep Count Validation**: Add safeguards against false rep increments
+3. **Detection Recovery Smoothing**: Implement gradual state restoration after detection return
+4. **Confidence Threshold Adjustment**: Fine-tune pose detection sensitivity
+5. **State Machine Hardening**: Add corruption prevention and recovery mechanisms
+6. **Frame Transition Handling**: Smooth state transitions during detection gaps
+</specific_debugging_tasks>
+
+<investigation_checklist>
+**Data Persistence Checklist:**
+- [ ] Server logs show successful API calls during session end
+- [ ] Database contains actual session records after workout completion
+- [ ] Session metrics are calculated and stored correctly
+- [ ] No database constraint violations or transaction rollbacks
+- [ ] Frontend session state is properly formatted before API submission
+- [ ] Authentication tokens are valid during session save operations
+- [ ] Network connectivity is stable during data transmission
+- [ ] Database connection pool is handling concurrent operations properly
+
+**Detection Stability Checklist:**
+- [ ] Pose detection state is preserved during temporary frame loss
+- [ ] Rep counting logic handles detection interruptions gracefully
+- [ ] False rep triggers are prevented during detection recovery
+- [ ] State machine transitions are robust and corruption-resistant
+- [ ] Detection confidence thresholds are appropriately calibrated
+- [ ] Frame loss events are properly logged and handled
+- [ ] Exercise state recovery is accurate and timely
+- [ ] Multiple detection loss/recovery cycles maintain accuracy
+</investigation_checklist>
+
+<output_format>
+Provide comprehensive debugging analysis with:
+
+**1. Root Cause Analysis:**
+```typescript
+// Detailed findings for each critical issue
+// Specific code locations where problems occur
+// Data flow diagrams showing failure points
+```
+
+**2. Session Persistence Fix:**
+```typescript
+// Complete solution for data persistence issues
+// Database operation improvements
+// API endpoint enhancements
+// State management corrections
+```
+
+**3. Detection Stability Fix:**
+```typescript
+// Pose detection state preservation logic
+// Rep counting safeguards and validation
+// Detection recovery smoothing algorithms
+// State machine hardening improvements
+```
+
+**4. Logging and Monitoring Enhancements:**
+```typescript
+// Debug logging for ongoing issue detection
+// Performance monitoring for data operations
+// Error tracking for detection failures
+```
+
+**5. Testing Procedures:**
+```typescript
+// End-to-end testing scripts
+// Edge case validation procedures
+// Data integrity verification methods
+```
+
+Include specific code changes, configuration updates, and testing procedures needed to resolve both critical issues.
+</output_format>
+
+<constraints>
+- Focus on systematic debugging rather than guessing at solutions
+- Provide specific, actionable fixes based on root cause analysis
+- Maintain existing app functionality while fixing critical issues
+- Use existing tech stack and architecture patterns
+- Implement robust logging for ongoing monitoring
+- Ensure fixes handle edge cases and concurrent operations
+- Preserve real-time tracking performance while fixing persistence
+- Maintain pose detection accuracy while improving stability
+- If debugging reveals deeper architectural issues, provide clear recommendations
+- Include comprehensive testing to verify fixes work reliably
+- Focus on production-ready solutions that prevent issue recurrence
+</constraints>
+
+<success_criteria>
+✅ Sessions save completely and accurately to database after workout completion
+✅ Progress dashboard shows correct workout data for all completed sessions
+✅ Rep counting remains accurate during detection loss and recovery
+✅ Pose detection state machine handles frame transitions robustly
+✅ No false rep increments occur when users leave and return to camera frame
+✅ Real-time tracking continues to work smoothly during workouts
+✅ Database operations complete successfully under various conditions
+✅ Detection stability improvements don't impact pose tracking performance
+✅ Comprehensive logging enables ongoing issue monitoring
+✅ App becomes reliable for actual workout use without data loss or counting errors
+✅ Edge cases and concurrent operations are handled properly
+✅ Both critical issues are permanently resolved, not just patched
+</success_criteria>

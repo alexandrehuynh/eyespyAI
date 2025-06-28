@@ -52,19 +52,78 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
   const repFlashRef = useRef(false);
   const movementVelocityRef = useRef<number[]>([]);
 
+  // Adaptive threshold learning refs
+  const userAngleHistory = useRef<number[]>([]);
+  const adaptiveThresholds = useRef<{[key: string]: {down: number, up: number}}>({});
+  const learningStartTime = useRef<number>(0);
+  const detectionLossTime = useRef<number>(0);
+  const lastDetectionTime = useRef<number>(Date.now());
+
   // Much more responsive rep detection thresholds
   const REP_COOLDOWN_MS = 300; // Even faster rep detection
-  const POSITION_STABILITY_FRAMES = 2; // Minimal frames for natural movement
+  const POSITION_STABILITY_FRAMES = 2; // Reduced from 3 to 2 for faster response
   const VELOCITY_HISTORY_FRAMES = 3;
+  const BRIEF_OCCLUSION_THRESHOLD = 2000; // 2 seconds = brief occlusion
+  const SUSTAINED_ABSENCE_THRESHOLD = 5000; // 5 seconds = intentional exit
 
-  // Reset counters when exercise changes
+  // Reset counters when exercise changes and initialize adaptive learning
   useEffect(() => {
     repCounterRef.current = 0;
     exerciseStateRef.current = "neutral";
     previousPositionsRef.current = [];
     lastRepTimeRef.current = 0;
     setSessionSeconds(0);
+    
+    // Initialize adaptive learning for new exercise
+    userAngleHistory.current = [];
+    adaptiveThresholds.current = {};
+    learningStartTime.current = Date.now();
+    console.log(`🏋️ [ADAPTIVE_DEBUG] Starting ${exercise} with adaptive learning`);
   }, [exercise]);
+
+  // Adaptive threshold learning function
+  const updateAdaptiveThresholds = useCallback((angle: number, exerciseType: string) => {
+    userAngleHistory.current.push(angle);
+    
+    // Keep only recent history (last 50 angles)
+    if (userAngleHistory.current.length > 50) {
+      userAngleHistory.current.shift();
+    }
+    
+    const learningDuration = (Date.now() - learningStartTime.current) / 1000;
+    
+    // Start adapting after 10 seconds and at least 20 data points
+    if (learningDuration > 10 && userAngleHistory.current.length >= 20) {
+      const sortedAngles = [...userAngleHistory.current].sort((a, b) => a - b);
+      
+      // Use 20th and 80th percentiles for more personalized thresholds
+      const percentile20 = sortedAngles[Math.floor(sortedAngles.length * 0.2)];
+      const percentile80 = sortedAngles[Math.floor(sortedAngles.length * 0.8)];
+      
+      // Calculate adaptive thresholds with safety margins
+      const rangeSize = percentile80 - percentile20;
+      const adaptiveDown = percentile20 + rangeSize * 0.3; // 30% from min
+      const adaptiveUp = percentile80 - rangeSize * 0.2; // 20% from max
+      
+      // Get default thresholds based on exercise type
+      let defaultDown = 95, defaultUp = 135; // Squat defaults
+      if (exerciseType === 'pushup') {
+        defaultDown = 90;
+        defaultUp = 140;
+      }
+      
+      // Apply safety bounds to prevent extreme values
+      const minDown = Math.min(defaultDown, adaptiveDown);
+      const maxUp = Math.max(defaultUp, adaptiveUp);
+      
+      adaptiveThresholds.current[exerciseType] = {
+        down: Math.max(minDown, percentile20 + 10), // At least 10° buffer
+        up: Math.min(maxUp, percentile80 - 10)
+      };
+      
+      console.log(`🎯 [ADAPTIVE_DEBUG] ${exerciseType} learned range: ${percentile20.toFixed(1)}°-${percentile80.toFixed(1)}°, Thresholds: down=${adaptiveThresholds.current[exerciseType].down.toFixed(1)}°, up=${adaptiveThresholds.current[exerciseType].up.toFixed(1)}°`);
+    }
+  }, [learningStartTime]);
 
   // Session timer
   useEffect(() => {
@@ -101,28 +160,31 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
     [],
   );
 
-  // Much more realistic exercise configurations for front-facing camera
+  // Adaptive exercise configurations with relaxed thresholds and user learning
   const exerciseConfigs = {
     squat: {
-      perfectKneeAngle: { min: 60, max: 90 }, // Even more realistic range
-      acceptableKneeAngle: { min: 45, max: 140 }, // Very wide acceptable range
-      // Remove depth restrictions - let people go as deep as they can
-      targetHipDepth: 0.05, // Much more lenient
-      maxTorsoLean: 35, // More realistic lean allowance
-      // Much more lenient rep detection thresholds
-      downStateKneeAngle: 110, // Easier to trigger down state
-      upStateKneeAngle: 120, // Easier to trigger up state
-      minMovementRange: 20, // Reduced minimum movement for rep counting
+      perfectKneeAngle: { min: 60, max: 90 },
+      acceptableKneeAngle: { min: 45, max: 140 },
+      targetHipDepth: 0.05,
+      maxTorsoLean: 35,
+      // CRITICAL FIX: Much more relaxed rep detection thresholds
+      downStateKneeAngle: 95, // Relaxed from 110° to 95° (40° range)
+      upStateKneeAngle: 135, // Relaxed from 120° to 135° 
+      minMovementRange: 10, // Reduced from 20° to 10° for partial reps
+      adaptiveThresholds: true, // Enable adaptive learning
+      learningFrames: 30, // Learn user range for 30 seconds
     },
     pushup: {
-      perfectElbowAngle: { min: 45, max: 90 }, // More realistic for front-facing camera
-      acceptableElbowAngle: { min: 30, max: 130 }, // Very wide acceptable range
-      maxBodySag: 0.12, // Much more lenient body alignment
-      minRangeOfMotion: 15, // Reduced minimum range
-      // More lenient rep detection thresholds
-      downStateElbowAngle: 110, // Easier to trigger down state
-      upStateElbowAngle: 130, // Easier to trigger up state
-      minMovementRange: 20, // Reduced minimum movement for rep counting
+      perfectElbowAngle: { min: 45, max: 90 },
+      acceptableElbowAngle: { min: 30, max: 130 },
+      maxBodySag: 0.12,
+      minRangeOfMotion: 15,
+      // CRITICAL FIX: Much more relaxed rep detection thresholds
+      downStateElbowAngle: 90, // Relaxed from 110° to 90° (50° range)
+      upStateElbowAngle: 140, // Relaxed from 130° to 140°
+      minMovementRange: 10, // Reduced from 20° to 10° for partial reps
+      adaptiveThresholds: true, // Enable adaptive learning
+      learningFrames: 30, // Learn user range for 30 seconds
     },
     plank: {
       perfectBodyLine: { min: 170, max: 185 },
@@ -222,38 +284,58 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       let repDetected = false;
       const config = exerciseConfigs.squat;
 
-      // Simplified rep detection - focus on basic up/down movement
-      if (previousPositionsRef.current.length >= 2) {
+      // CRITICAL FIX: Adaptive rep detection with user-learned thresholds
+      updateAdaptiveThresholds(avgKneeAngle, 'squat');
+      
+      if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
         const current = avgKneeAngle;
         
+        // Use adaptive thresholds if available, otherwise use relaxed defaults
+        const downThreshold = adaptiveThresholds.current.squat?.down || config.downStateKneeAngle;
+        const upThreshold = adaptiveThresholds.current.squat?.up || config.upStateKneeAngle;
+        
+        console.log(`🏋️ [SQUAT_DEBUG] State: ${currentState}, Knee: ${current.toFixed(1)}°, Thresholds: down=${downThreshold.toFixed(1)}°, up=${upThreshold.toFixed(1)}°, Reps: ${repCounterRef.current}`);
+        
         if (currentState === "neutral" || currentState === "up") {
-          // Detect going down - much more lenient threshold
-          if (current < config.downStateKneeAngle) {
+          // Detect going down - adaptive threshold
+          if (current < downThreshold) {
+            console.log(`⬇️ [SQUAT_REP] Going DOWN: ${current.toFixed(1)}° < ${downThreshold.toFixed(1)}° (threshold)`);
             currentState = "down";
             exerciseStateRef.current = "down";
           }
         } else if (currentState === "down") {
-          // Detect coming back up - simplified logic
-          if (current > config.upStateKneeAngle && 
+          // Detect coming back up with relaxed stability checks
+          if (current > upThreshold && 
               now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
             
-            // Much simpler movement range check
-            const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.kneeAngle);
-            const minRecentAngle = Math.min(...recentAngles);
-            const movementRange = current - minRecentAngle;
+            // RELAXED STABILITY CHECK: Only require 2 frames within 75° tolerance
+            const hasStableTracking = previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES;
+            const recentTrackingStable = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES).every(p => 
+              Math.abs(p.kneeAngle - current) < 75 // Increased from 50° to 75°
+            );
             
-            // Very lenient rep validation
-            if (movementRange >= config.minMovementRange) {
-              currentState = "up";
-              exerciseStateRef.current = "up";
-              repCounterRef.current += 1;
-              lastRepTimeRef.current = now;
-              repDetected = true;
-              repFlashRef.current = true;
+            if (hasStableTracking && recentTrackingStable) {
+              // Much simpler movement range check
+              const recentAngles = previousPositionsRef.current.slice(-6).map(p => p.kneeAngle);
+              const minRecentAngle = Math.min(...recentAngles);
+              const movementRange = current - minRecentAngle;
+              
+              // Very lenient rep validation with reduced minimum range
+              if (movementRange >= config.minMovementRange) {
+                console.log(`🎯 [SQUAT_REP] REP DETECTED! Up: ${current.toFixed(1)}° > ${upThreshold.toFixed(1)}°, Range: ${movementRange.toFixed(1)}°`);
+                currentState = "up";
+                exerciseStateRef.current = "up";
+                repCounterRef.current += 1;
+                lastRepTimeRef.current = now;
+                repDetected = true;
+                repFlashRef.current = true;
 
-              setTimeout(() => {
-                repFlashRef.current = false;
-              }, 800);
+                setTimeout(() => {
+                  repFlashRef.current = false;
+                }, 800);
+              }
+            } else {
+              console.log(`⚠️ [SQUAT_DEBUG] Unstable tracking detected, waiting for stability`);
             }
           }
         }
@@ -401,14 +483,14 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
             exerciseStateRef.current = "down";
           }
         } else if (currentState === "down") {
-          // Detect coming back up with enhanced validation and corruption protection
-          if (current > config.upStateElbowAngle && 
+          // Detect coming back up with adaptive thresholds and relaxed stability checks
+          if (current > upThreshold && 
               now - lastRepTimeRef.current > REP_COOLDOWN_MS) {
             
-            // STATE CORRUPTION FIX: Add stability checks to prevent false reps
-            const hasStableTracking = previousPositionsRef.current.length >= 3;
-            const recentTrackingStable = previousPositionsRef.current.slice(-3).every(p => 
-              Math.abs(p.elbowAngle - current) < 50 // Angles within reasonable range
+            // RELAXED STABILITY CHECK: Only require 2 frames within 75° tolerance
+            const hasStableTracking = previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES;
+            const recentTrackingStable = previousPositionsRef.current.slice(-POSITION_STABILITY_FRAMES).every(p => 
+              Math.abs(p.elbowAngle - current) < 75 // Increased from 50° to 75°
             );
             
             if (hasStableTracking && recentTrackingStable) {
@@ -417,9 +499,9 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
               const minRecentAngle = Math.min(...recentAngles);
               const movementRange = current - minRecentAngle;
               
-              // Very lenient rep validation with corruption protection
+              // Very lenient rep validation with reduced minimum range
               if (movementRange >= config.minMovementRange) {
-                console.log(`🎯 [REP_DEBUG] Push-up rep detected! Range: ${movementRange}°, Current: ${current}°, Min: ${minRecentAngle}°`);
+                console.log(`🎯 [PUSHUP_REP] REP DETECTED! Up: ${current.toFixed(1)}° > ${upThreshold.toFixed(1)}°, Range: ${movementRange.toFixed(1)}°`);
                 currentState = "up";
                 exerciseStateRef.current = "up";
                 repCounterRef.current += 1;
@@ -431,6 +513,8 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
                   repFlashRef.current = false;
                 }, 800);
               }
+            } else {
+              console.log(`⚠️ [PUSHUP_DEBUG] Unstable tracking detected, waiting for stability`);
             }
           }
         }
@@ -659,20 +743,54 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
         return;
       }
 
-      // Detection recovery logic - prevent false reps after frame loss
+      // CRITICAL FIX: Intelligent detection recovery - differentiate brief occlusion vs intentional exit
       const wasDetectionLost = !metrics.isPersonDetected;
+      const now = Date.now();
+      
       if (wasDetectionLost && (quality.detectionQuality === "good" || quality.detectionQuality === "excellent")) {
-        console.log(`🔄 [POSE_DEBUG] Detection recovered for ${exercise} - implementing safeguards`);
+        const detectionLossDuration = detectionLossTime.current > 0 ? now - detectionLossTime.current : 0;
         
-        // Reset exercise state machine to neutral to prevent false triggers
-        exerciseStateRef.current = "neutral";
+        if (detectionLossDuration < BRIEF_OCCLUSION_THRESHOLD) {
+          // Brief occlusion (<2s) - preserve state, minimal reset
+          console.log(`🔄 [RECOVERY_DEBUG] Brief occlusion recovery (${(detectionLossDuration/1000).toFixed(1)}s) for ${exercise} - preserving state`);
+          
+          // Only clear recent position data, preserve state machine
+          if (previousPositionsRef.current.length > 3) {
+            previousPositionsRef.current = previousPositionsRef.current.slice(-2); // Keep last 2 positions
+          }
+          
+          // Add minimal grace period (500ms) not full cooldown
+          lastRepTimeRef.current = Math.max(lastRepTimeRef.current, now - REP_COOLDOWN_MS + 500);
+          
+        } else if (detectionLossDuration >= SUSTAINED_ABSENCE_THRESHOLD) {
+          // Sustained absence (>5s) - full reset
+          console.log(`🔄 [RECOVERY_DEBUG] Sustained absence recovery (${(detectionLossDuration/1000).toFixed(1)}s) for ${exercise} - full reset`);
+          
+          exerciseStateRef.current = "neutral";
+          previousPositionsRef.current = [];
+          movementVelocityRef.current = [];
+          lastRepTimeRef.current = now;
+          
+        } else {
+          // Medium absence (2-5s) - partial reset with caution
+          console.log(`🔄 [RECOVERY_DEBUG] Medium absence recovery (${(detectionLossDuration/1000).toFixed(1)}s) for ${exercise} - cautious reset`);
+          
+          // Reset to neutral but keep some position history
+          exerciseStateRef.current = "neutral";
+          previousPositionsRef.current = previousPositionsRef.current.slice(-1); // Keep last position
+          lastRepTimeRef.current = now;
+        }
         
-        // Add recovery cooldown to prevent immediate rep detection
-        lastRepTimeRef.current = Date.now();
-        
-        // Clear movement history to prevent stale data from triggering reps
-        previousPositionsRef.current = [];
-        movementVelocityRef.current = [];
+        detectionLossTime.current = 0; // Reset loss timer
+      }
+      
+      // Track detection state for loss duration calculation
+      if (!results.poseLandmarks || results.poseLandmarks.length === 0) {
+        if (detectionLossTime.current === 0) {
+          detectionLossTime.current = now;
+        }
+      } else {
+        lastDetectionTime.current = now;
       }
 
       // Only perform exercise analysis if detection quality is good or better

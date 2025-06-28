@@ -1,0 +1,396 @@
+<role>
+You are an expert MediaPipe computer vision engineer specializing in real-time fitness tracking applications, pose detection optimization, and state machine design for exercise repetition counting. You excel at balancing accuracy with performance while preventing both false positives and false negatives in movement detection.
+</role>
+
+<task>
+Fix critical rep counting accuracy issues in an EyeSpy AI fitness tracking application where legitimate squats and push-ups are not being detected due to overly strict validation logic implemented to prevent false positives. Implement adaptive thresholds, intelligent detection recovery, and comprehensive debugging while maintaining anti-corruption measures.
+</task>
+
+<context>
+The application uses MediaPipe pose detection with React/TypeScript for real-time exercise form analysis. Recent state corruption fixes to prevent false reps when users leave camera frame have made the system too conservative, causing legitimate reps to be missed. The app tracks squats, push-ups, and planks using a state machine with "neutral"/"up"/"down" states, cooldown timers, and position history tracking.
+</context>
+
+<critical_issues_to_fix>
+<issue type="threshold_rigidity" priority="high">
+<current_code>
+downStateKneeAngle: 110, upStateKneeAngle: 120  // Squats: only 10° range
+downStateElbowAngle: 110, upStateElbowAngle: 130 // Push-ups: only 20° range
+minMovementRange: 20 // Too restrictive for partial reps
+</current_code>
+<problem>Fixed thresholds don't accommodate different body types, camera angles, or exercise variations</problem>
+<impact>Users with different flexibility/strength levels cannot trigger rep detection</impact>
+</issue>
+
+<issue type="recovery_aggression" priority="high">
+<current_code>
+// Reset exercise state machine to neutral to prevent false triggers
+exerciseStateRef.current = "neutral";
+// Add recovery cooldown to prevent immediate rep detection  
+lastRepTimeRef.current = Date.now();
+// Clear movement history
+previousPositionsRef.current = [];
+</current_code>
+<problem>Complete state reset on any detection loss blocks legitimate reps in progress</problem>
+<impact>Mid-rep users lose progress when briefly leaving camera frame</impact>
+</issue>
+
+<issue type="stability_checks_unrealistic" priority="medium">
+<current_code>
+const hasStableTracking = previousPositionsRef.current.length >= 3;
+const recentTrackingStable = previousPositionsRef.current.slice(-3).every(p => 
+  Math.abs(p.elbowAngle - current) < 50 // Angles within 50° range
+);
+</current_code>
+<problem>Requiring 3 consecutive angles within 50° during active movement is unrealistic</problem>
+<impact>Normal movement variation during exercises gets flagged as unstable</impact>
+</issue>
+
+<issue type="mobile_coordinate_mapping" priority="medium">
+<problem>Complex coordinate transformation logic causing inconsistent angle calculations on mobile devices</problem>
+<impact>Desktop works but mobile rep detection fails due to coordinate mapping issues</impact>
+</issue>
+</critical_issues_to_fix>
+
+<technical_requirements>
+<angle_adaptation>
+- Implement dynamic range calculation based on user's movement history (last 6-10 positions)
+- Use percentile-based thresholds (20th/80th percentile of recent angles instead of fixed values)
+- Account for camera distance variations by normalizing based on landmark visibility
+- Adapt thresholds within first 30 seconds of exercise to learn user's range of motion
+</angle_adaptation>
+
+<state_management>
+- Differentiate between "brief occlusion" (<2 seconds) vs "intentional exit" (>5 seconds)
+- Implement grace period for detection recovery (2-3 seconds before blocking reps)
+- Use velocity-based state transitions to detect movement direction changes
+- Preserve partial rep progress during brief detection loss
+- Only reset state machine after sustained absence (5+ seconds)
+</state_management>
+
+<stability_validation>
+- Reduce required stable frames from 3 to 2 for faster response
+- Increase angle tolerance from 50° to 75° for more realistic movement
+- Use rolling average instead of strict sequential requirements
+- Implement confidence scoring based on landmark visibility and consistency
+</stability_validation>
+
+<coordinate_optimization>
+- Add mobile-specific coordinate transformation validation
+- Implement fallback coordinate mapping for mobile browser differences
+- Use normalized landmark positions relative to body center for consistency
+- Add coordinate sanity checks to detect and handle mapping failures
+</coordinate_optimization>
+</technical_requirements>
+
+<performance_requirements>
+- Maintain 30+ FPS processing speed on mobile devices
+- Minimize false positive rate to <5% (prevent counting non-reps)
+- Achieve 90%+ legitimate rep detection rate (catch real reps)
+- Memory-efficient position history (max 10 frames, rolling buffer)
+- Latency from movement to rep detection <500ms
+- Support concurrent tracking without performance degradation
+</performance_requirements>
+
+<debugging_implementation>
+<logging_levels>
+- State transitions with timestamps and trigger reasons
+- Angle calculations with min/max/current values and trends
+- Adaptive threshold adjustments with user range learning
+- Detection quality metrics per frame (confidence, completeness)
+- Recovery event tracking with duration and success rate
+- Mobile vs desktop performance comparison metrics
+</logging_levels>
+
+<console_output_format>
+🏋️ [SQUAT_DEBUG] State: down, Knee: 85°, Range: 45-135°, Reps: 3
+🎯 [SQUAT_ADAPTIVE] Learned range: 65°, Down: 95°, Up: 125°
+⬇️ [SQUAT_REP] Going DOWN: 89° < 95° (threshold)
+🎯 [SQUAT_REP] REP DETECTED! Up: 127° > 125°, Range: 42°
+🔄 [RECOVERY] Brief loss (1.2s), preserving state: down
+⚠️ [MOBILE_COORD] Coordinate mapping variance detected: ±15°
+</console_output_format>
+
+<visualization_tools>
+- Real-time angle graphs showing current vs adaptive thresholds
+- State machine visualization with transition history
+- Threshold adaptation display showing learning progress
+- Mobile coordinate mapping accuracy indicator
+- Rep detection confidence scoring visualization
+</visualization_tools>
+</debugging_implementation>
+
+<testing_framework>
+<test_scenarios>
+<body_types>
+- Tall users (>6'2") with longer limbs affecting angle calculations
+- Shorter users (<5'4") with different proportional movements
+- Athletic build vs average build movement patterns
+- Different flexibility levels (deep squats vs limited range)
+</body_types>
+
+<camera_conditions>
+- Front-facing camera (default) vs back camera switching
+- Various distances (close: arm's length, far: 6+ feet)
+- Portrait vs landscape orientation with proper coordinate mapping
+- Different lighting conditions (bright/dim/mixed)
+- Mobile vs desktop browser differences
+</camera_conditions>
+
+<movement_patterns>
+- Slow controlled reps (3+ seconds per rep)
+- Fast explosive reps (<1 second per rep)
+- Partial range of motion (injury recovery, beginners)
+- Deep range of motion (advanced athletes)
+- Intentional camera frame exits and returns
+- Brief accidental occlusions (hand waving, objects)
+</movement_patterns>
+</test_scenarios>
+
+<validation_metrics>
+- Rep accuracy percentage: (detected legitimate reps / total legitimate reps) * 100
+- False positive rate: (false reps detected / total detection events) * 100
+- Detection latency: milliseconds from movement completion to rep registration
+- State recovery time: milliseconds from detection return to normal operation
+- Threshold adaptation convergence: seconds to learn user's optimal ranges
+- Mobile vs desktop parity: accuracy difference between platforms
+</validation_metrics>
+
+<success_criteria>
+✅ 90%+ legitimate rep detection across all test scenarios
+✅ <5% false positive rate during normal exercise
+✅ <500ms detection latency for completed movements
+✅ <2 second recovery time from brief detection loss
+✅ Adaptive thresholds converge within 30 seconds of exercise start
+✅ <10% accuracy difference between mobile and desktop
+✅ Maintains performance at 30+ FPS on mobile devices
+✅ State preservation works during brief occlusions (<2 seconds)
+</success_criteria>
+</testing_framework>
+
+<implementation_approach>
+<immediate_fixes priority="critical">
+1. **Relax angle thresholds immediately**:
+   - Squat: Change from 110°→120° to 95°→135° (40° range)
+   - Push-up: Change from 110°→130° to 90°→140° (50° range)
+   - Reduce minMovementRange from 20° to 10° for partial reps
+
+2. **Improve detection recovery logic**:
+   - Add 2-second grace period before blocking reps after detection return
+   - Only reset to neutral after sustained absence (5+ seconds)
+   - Preserve position history during brief detection loss (<2 seconds)
+
+3. **Relax stability checks**:
+   - Reduce required stable frames from 3 to 2
+   - Increase angle tolerance from 50° to 75°
+   - Use rolling average instead of strict sequential requirements
+</immediate_fixes>
+
+<adaptive_system_implementation>
+1. **User Range Learning**:
+   - Track min/max angles during first 30 seconds of exercise
+   - Calculate user-specific thresholds as percentiles of observed range
+   - Continuously refine thresholds with weighted moving average
+
+2. **Intelligent State Management**:
+   - Differentiate brief occlusion from intentional exit using time-based logic
+   - Implement state preservation during short detection gaps
+   - Use movement velocity to predict state transitions
+
+3. **Mobile Optimization**:
+   - Add coordinate transformation validation with fallback methods
+   - Implement mobile-specific angle calculation adjustments
+   - Use landmark confidence scoring for mobile stability assessment
+</adaptive_system_implementation>
+
+<code_structure_requirements>
+- Maintain existing React/TypeScript architecture
+- Preserve current MediaPipe integration patterns
+- Use existing state management (useRef, useState patterns)
+- Keep current exercise type switching logic
+- Maintain backward compatibility with existing session management
+- Follow existing code style and naming conventions
+</code_structure_requirements>
+</implementation_approach>
+
+<edge_cases>
+<exercise_variations>
+- Users doing single-arm push-ups or modified exercises
+- Knee push-ups vs standard push-ups (different angle ranges)
+- Assisted squats using chairs or walls for support
+- Partial disability modifications requiring different thresholds
+- Wide-stance vs narrow-stance squats (different hip angles)
+</exercise_variations>
+
+<timing_extremes>
+- Extremely slow reps (>10 seconds) that might timeout state machine
+- Very fast explosive reps (<0.5 seconds) that might skip detection
+- Pause reps where user holds position at bottom (isometric holds)
+- Rest-pause sets with extended breaks between reps
+</timing_extremes>
+
+<environmental_factors>
+- Camera shake/movement during exercise affecting coordinate stability
+- Multiple people briefly entering frame causing landmark confusion
+- Users wearing loose clothing affecting pose detection accuracy
+- Exercises done on uneven surfaces (outdoor workouts, stairs)
+- Poor lighting conditions causing landmark visibility issues
+- Background objects that might interfere with pose detection
+</environmental_factors>
+
+<technical_edge_cases>
+- Browser tab switching during exercise (pause/resume detection)
+- Camera permission revoked mid-exercise
+- Network connectivity issues affecting session saving
+- Mobile device rotation during exercise
+- Low-end devices with reduced processing power
+- WebRTC stream interruptions or quality degradation
+</technical_edge_cases>
+</edge_cases>
+
+<fallback_strategy>
+<adaptive_learning_failures>
+- If adaptive learning doesn't converge in 30 seconds, use relaxed default ranges
+- Detect erratic threshold adaptation and revert to safe defaults
+- Provide user feedback when learning is struggling: "Having trouble detecting your range - switching to beginner mode"
+- Log failed adaptation attempts for debugging and improvement
+</adaptive_learning_failures>
+
+<detection_quality_degradation>
+- Graceful degradation to basic rep counting if advanced features fail
+- Clear user guidance when detection quality is poor: "Move closer to camera" or "Improve lighting"
+- Option to switch to "simplified mode" for problematic camera setups
+- Automatic fallback when mobile coordinate mapping consistently fails
+</detection_quality_degradation>
+
+<user_control_options>
+- Allow manual threshold adjustment in settings for power users
+- "Sensitivity" slider: Strict (fewer false positives) vs Loose (catch more reps)
+- Exercise difficulty setting: Beginner (wider ranges) vs Advanced (tighter ranges)
+- Camera calibration mode to test detection before starting workout
+</user_control_options>
+
+<error_recovery>
+- Automatic state machine reset if stuck in invalid state for >30 seconds
+- Session data preservation even if real-time detection fails
+- Alternative rep counting method (manual increment button) as backup
+- Clear error messaging with specific troubleshooting steps
+</error_recovery>
+</fallback_strategy>
+
+<implementation_phases>
+<phase_1 priority="immediate" timeline="1-2 days">
+<description>Critical fixes to restore basic rep counting functionality</description>
+<tasks>
+- Relax angle thresholds (Squats: 95°→135°, Push-ups: 90°→140°)
+- Fix detection recovery logic (preserve state during brief loss <2 seconds)
+- Reduce stability check strictness (75° tolerance, 2 frames instead of 3)
+- Add basic debugging logs to identify threshold crossing events
+- Test with 3-5 users across desktop and mobile
+</tasks>
+<success_criteria>
+- 70%+ legitimate rep detection (up from current low rate)
+- No state machine getting stuck in invalid states
+- Basic functionality restored on both desktop and mobile
+</success_criteria>
+</phase_1>
+
+<phase_2 priority="short_term" timeline="1-2 weeks">
+<description>Implement adaptive learning and comprehensive debugging</description>
+<tasks>
+- Implement user range learning system (30-second calibration)
+- Add comprehensive debugging system with structured console output
+- Mobile coordinate mapping improvements and validation
+- Add fallback strategies for when adaptive learning fails
+- Implement edge case handling for common exercise variations
+</tasks>
+<success_criteria>
+- 85%+ legitimate rep detection across different body types
+- Adaptive thresholds converge for 80%+ of users within 30 seconds
+- Mobile coordinate mapping accuracy within 10% of desktop
+</success_criteria>
+</phase_2>
+
+<phase_3 priority="long_term" timeline="3-4 weeks">
+<description>Advanced optimization and user customization</description>
+<tasks>
+- Advanced mobile browser optimization (Safari, Chrome, Firefox)
+- User customization options (sensitivity settings, manual thresholds)
+- Advanced edge case handling (modified exercises, environmental factors)
+- Performance optimization for low-end devices
+- A/B testing framework for threshold optimization
+</tasks>
+<success_criteria>
+- 90%+ legitimate rep detection across all test scenarios
+- <5% false positive rate maintained
+- Consistent performance across all major mobile browsers
+- User satisfaction metrics show improved exercise experience
+</success_criteria>
+</phase_3>
+
+<rollback_plan>
+- Keep current version as fallback during Phase 1 testing
+- Feature flags to disable adaptive learning if issues arise
+- Ability to revert to previous thresholds per user if needed
+- Database schema changes must be backward compatible
+</rollback_plan>
+</implementation_phases>
+
+<error_handling_requirements>
+- Graceful degradation when coordinate mapping fails
+- Fallback to basic thresholds if adaptive learning fails
+- Clear error messages for debugging coordinate issues
+- Automatic recovery from state machine corruption
+- Performance monitoring with automatic optimization adjustments
+- User feedback when detection quality is poor
+</error_handling_requirements>
+
+<output_format>
+Provide implementation with:
+
+**1. Enhanced Analysis Functions**
+```typescript
+// Improved analyzeSquat and analyzePushUp functions with adaptive thresholds
+// Include comprehensive debugging logs and mobile coordinate handling
+```
+
+**2. Improved Detection Recovery**
+```typescript
+// Smart processPoseResults with detection loss handling
+// Preserve partial rep progress and intelligent state management
+```
+
+**3. Configuration Updates**
+```typescript
+// Updated exerciseConfigs with relaxed and adaptive thresholds
+// Mobile-optimized coordinate transformation parameters
+```
+
+**4. Debugging Implementation**
+```typescript
+// Comprehensive logging system with structured console output
+// Performance monitoring and mobile/desktop comparison tools
+```
+
+**5. Testing Procedures**
+```typescript
+// Step-by-step testing instructions with expected console outputs
+// Validation checklist for mobile vs desktop functionality
+```
+
+Include specific code changes, performance optimizations, and testing procedures needed to achieve the success criteria while maintaining the existing application architecture.
+</output_format>
+
+<constraints>
+- Maintain existing MediaPipe pose detection pipeline without breaking changes
+- Preserve current UI/UX design patterns and user experience
+- Use only the existing tech stack (React, TypeScript, MediaPipe)
+- Ensure backward compatibility with existing database session tracking
+- Keep real-time performance at 30+ FPS on mobile devices
+- Maintain current exercise type support (squats, push-ups, planks)
+- Preserve existing authentication and session management systems
+- Follow established code organization and file structure patterns
+- If debugging reveals mobile coordinate mapping is unfixable, provide clear workaround strategies
+- Include migration path for users with existing workout data
+- Ensure fixes work across different mobile browsers (Chrome, Safari, Firefox)
+- Maintain production deployment compatibility
+</constraints>

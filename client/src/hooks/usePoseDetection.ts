@@ -472,13 +472,22 @@ export function usePoseDetection(exercise: Exercise, isActive: boolean) {
       let repDetected = false;
       const config = exerciseConfigs.pushup;
 
-      // Simplified push-up rep detection - focus on basic up/down movement
-      if (previousPositionsRef.current.length >= 2) {
+      // CRITICAL FIX: Adaptive push-up rep detection with user-learned thresholds
+      updateAdaptiveThresholds(avgElbowAngle, 'pushup');
+      
+      if (previousPositionsRef.current.length >= POSITION_STABILITY_FRAMES) {
         const current = avgElbowAngle;
         
+        // Use adaptive thresholds if available, otherwise use relaxed defaults
+        const downThreshold = adaptiveThresholds.current.pushup?.down || config.downStateElbowAngle;
+        const upThreshold = adaptiveThresholds.current.pushup?.up || config.upStateElbowAngle;
+        
+        console.log(`💪 [PUSHUP_DEBUG] State: ${currentState}, Elbow: ${current.toFixed(1)}°, Thresholds: down=${downThreshold.toFixed(1)}°, up=${upThreshold.toFixed(1)}°, Reps: ${repCounterRef.current}`);
+        
         if (currentState === "neutral" || currentState === "up") {
-          // Detect going down - much more lenient threshold
-          if (current < config.downStateElbowAngle) {
+          // Detect going down - adaptive threshold
+          if (current < downThreshold) {
+            console.log(`⬇️ [PUSHUP_REP] Going DOWN: ${current.toFixed(1)}° < ${downThreshold.toFixed(1)}° (threshold)`);
             currentState = "down";
             exerciseStateRef.current = "down";
           }

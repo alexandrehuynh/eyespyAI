@@ -116,6 +116,7 @@ Changelog:
 - June 26, 2025. Authentication system: Fixed WebSocket connectivity issues by switching from neon-serverless to postgres driver, all authentication features now working (registration, login, password reset, magic links)
 - June 26, 2025. Session data persistence: Fixed critical bug where session end used live metrics instead of aggregated recorded data, ensuring workout statistics survive to progress dashboard
 - June 26, 2025. Session management: Fixed camera detection loss creating multiple sessions by separating session lifecycle from detection status, ensuring single continuous session regardless of temporary detection failures
+- June 27, 2025. Rep counting accuracy: Implemented adaptive threshold learning and intelligent detection recovery to fix legitimate rep detection failures. Relaxed angle thresholds (squat: 95°-135°, pushup: 90°-140°), reduced stability requirements (2 frames, 75° tolerance), and added user range learning for personalized detection
 ```
 
 ## User Preferences

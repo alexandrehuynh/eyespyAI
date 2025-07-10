@@ -57,48 +57,82 @@ EyeSpy AI Team
   }
 }
 
-// Production email service (can be configured with Resend, SendGrid, etc.)
-export class ProductionEmailService implements IEmailService {
+// Resend email service for production email sending
+export class ResendEmailService implements IEmailService {
   private apiKey: string;
   private fromEmail: string;
 
   constructor() {
-    this.apiKey = process.env.EMAIL_API_KEY || '';
-    this.fromEmail = process.env.FROM_EMAIL || 'auth@eyespy-ai.com';
+    this.apiKey = process.env.RESEND_API_KEY || '';
+    this.fromEmail = process.env.FROM_EMAIL || 'EyeSpy AI <onboarding@resend.dev>';
     
     if (!this.apiKey) {
-      console.warn('EMAIL_API_KEY not configured. Email service will not work in production.');
+      console.warn('RESEND_API_KEY not configured. Email service will not work.');
     }
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
     const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
     
-    // TODO: Implement actual email sending with chosen provider (Resend/SendGrid)
-    // For now, fall back to console logging
-    console.log(`Would send password reset email to ${email} with URL: ${resetUrl}`);
-    
-    // Example Resend implementation:
-    // const response = await fetch('https://api.resend.com/emails', {
-    //   method: 'POST',
-    //   headers: {
-    //     'Authorization': `Bearer ${this.apiKey}`,
-    //     'Content-Type': 'application/json',
-    //   },
-    //   body: JSON.stringify({
-    //     from: this.fromEmail,
-    //     to: email,
-    //     subject: 'Reset Your EyeSpy AI Password',
-    //     html: this.getPasswordResetTemplate(resetUrl),
-    //   }),
-    // });
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: this.fromEmail,
+          to: email,
+          subject: 'Reset Your EyeSpy AI Password',
+          html: this.getPasswordResetTemplate(resetUrl),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Failed to send password reset email:', error);
+        throw new Error(`Email send failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ Password reset email sent to ${email}, ID: ${result.id}`);
+    } catch (error) {
+      console.error('Error sending password reset email:', error);
+      throw error;
+    }
   }
 
   async sendMagicLinkEmail(email: string, magicToken: string): Promise<void> {
     const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/magic?token=${magicToken}`;
     
-    // TODO: Implement actual email sending
-    console.log(`Would send magic link email to ${email} with URL: ${magicUrl}`);
+    try {
+      const response = await fetch('https://api.resend.com/emails', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${this.apiKey}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          from: this.fromEmail,
+          to: email,
+          subject: 'Your EyeSpy AI Magic Link',
+          html: this.getMagicLinkTemplate(magicUrl),
+        }),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        console.error('Failed to send magic link email:', error);
+        throw new Error(`Email send failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      console.log(`✅ Magic link email sent to ${email}, ID: ${result.id}`);
+    } catch (error) {
+      console.error('Error sending magic link email:', error);
+      throw error;
+    }
   }
 
   private getPasswordResetTemplate(resetUrl: string): string {
@@ -170,7 +204,7 @@ export class ProductionEmailService implements IEmailService {
   }
 }
 
-// Create email service instance based on environment
-export const emailService: IEmailService = process.env.NODE_ENV === 'production' 
-  ? new ProductionEmailService() 
+// Create email service instance - use Resend if API key is available, otherwise console
+export const emailService: IEmailService = process.env.RESEND_API_KEY 
+  ? new ResendEmailService() 
   : new ConsoleEmailService();

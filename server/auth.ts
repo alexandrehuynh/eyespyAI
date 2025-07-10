@@ -362,10 +362,7 @@ export function registerAuthRoutes(app: Express) {
       const token = req.query.token as string;
       
       if (!token) {
-        return res.status(400).json({
-          success: false,
-          error: "Magic link token is required"
-        });
+        return res.redirect('/?error=missing_token');
       }
       
       // Hash the provided token for comparison
@@ -375,19 +372,14 @@ export function registerAuthRoutes(app: Express) {
       const authToken = await storage.getAuthToken(tokenHash, 'magic_link');
       
       if (!authToken || authToken.usedAt || authToken.expiresAt < new Date()) {
-        return res.status(400).json({
-          success: false,
-          error: "Invalid or expired magic link"
-        });
+        // Redirect to home page with error message for invalid/expired links
+        return res.redirect('/?error=invalid_magic_link');
       }
       
       // Get user
       const user = await storage.getUser(authToken.userId);
       if (!user) {
-        return res.status(400).json({
-          success: false,
-          error: "User not found"
-        });
+        return res.redirect('/?error=user_not_found');
       }
       
       // Create session
@@ -397,20 +389,11 @@ export function registerAuthRoutes(app: Express) {
       // Mark token as used
       await storage.markTokenAsUsed(authToken.id);
       
-      res.json({
-        success: true,
-        data: {
-          id: user.id,
-          username: user.username,
-          message: "Successfully signed in with magic link"
-        }
-      });
+      // Redirect to home page after successful authentication
+      res.redirect('/');
     } catch (error) {
       console.error("Magic link verification error:", error);
-      res.status(400).json({
-        success: false,
-        error: "Magic link verification failed"
-      });
+      res.redirect('/?error=magic_link_failed');
     }
   });
 }

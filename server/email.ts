@@ -72,7 +72,7 @@ export class ResendEmailService implements IEmailService {
   }
 
   async sendPasswordResetEmail(email: string, resetToken: string): Promise<void> {
-    const resetUrl = `${process.env.APP_URL || 'http://localhost:5000'}/reset-password?token=${resetToken}`;
+    const resetUrl = `${process.env.APP_URL || 'https://eyespyai.replit.app'}/reset-password?token=${resetToken}`;
     
     try {
       const response = await fetch('https://api.resend.com/emails', {
@@ -104,7 +104,7 @@ export class ResendEmailService implements IEmailService {
   }
 
   async sendMagicLinkEmail(email: string, magicToken: string): Promise<void> {
-    const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/magic?token=${magicToken}`;
+    const magicUrl = `${process.env.APP_URL || 'https://eyespyai.replit.app'}/api/auth/magic?token=${magicToken}`;
     
     try {
       const response = await fetch('https://api.resend.com/emails', {

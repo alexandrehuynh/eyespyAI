@@ -33,12 +33,12 @@ interface AuthenticatedRequest extends Request {
 }
 
 export function registerAuthRoutes(app: Express) {
-  // POST /api/auth/register - User registration with password hashing
+  // POST /api/auth/register - User registration with password hashing and email
   app.post("/api/auth/register", async (req, res) => {
     try {
-      const { username, password } = insertUserSchema.parse(req.body);
+      const { username, password, email } = insertUserSchema.parse(req.body);
       
-      // Check if user already exists
+      // Check if user already exists by username or email
       const existingUser = await storage.getUserByUsername(username);
       if (existingUser) {
         return res.status(400).json({
@@ -46,15 +46,23 @@ export function registerAuthRoutes(app: Express) {
           error: "Username already exists"
         });
       }
+
+      const existingEmail = await storage.getUserByEmail(email);
+      if (existingEmail) {
+        return res.status(400).json({
+          success: false,
+          error: "Email already registered"
+        });
+      }
       
       // Hash password
-      const saltRounds = 12;
-      const hashedPassword = await bcrypt.hash(password, saltRounds);
+      const hashedPassword = await AuthUtils.hashPassword(password);
       
-      // Create user
-      const user = await storage.createUser({
+      // Create user with email
+      const user = await storage.createUserWithEmail({
         username,
-        password: hashedPassword
+        password: hashedPassword,
+        email: AuthUtils.sanitizeEmail(email)
       });
       
       // Create session

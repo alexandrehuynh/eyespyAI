@@ -33,7 +33,7 @@ EyeSpy AI Team
   }
 
   async sendMagicLinkEmail(email: string, magicToken: string): Promise<void> {
-    const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/auth/magic?token=${magicToken}`;
+    const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/magic?token=${magicToken}`;
     
     console.log(`
 === MAGIC LINK EMAIL ===
@@ -95,7 +95,7 @@ export class ProductionEmailService implements IEmailService {
   }
 
   async sendMagicLinkEmail(email: string, magicToken: string): Promise<void> {
-    const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/auth/magic?token=${magicToken}`;
+    const magicUrl = `${process.env.APP_URL || 'http://localhost:5000'}/api/auth/magic?token=${magicToken}`;
     
     // TODO: Implement actual email sending
     console.log(`Would send magic link email to ${email} with URL: ${magicUrl}`);

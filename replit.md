@@ -119,6 +119,7 @@ Changelog:
 - June 27, 2025. Rep counting accuracy: Implemented adaptive threshold learning and intelligent detection recovery to fix legitimate rep detection failures. Relaxed angle thresholds (squat: 95°-135°, pushup: 90°-140°), reduced stability requirements (2 frames, 75° tolerance), and added user range learning for personalized detection
 - July 9, 2025. Authentication fixes: Fixed magic link URL routing issue (/auth/magic → /api/auth/magic), updated registration to require email collection, migrated database schema to make email mandatory for all users, ensuring magic links and password reset functionality work properly
 - July 10, 2025. Resend email service: Implemented production email service with Resend API integration, replaced console logging with real email delivery, configured magic link URLs to redirect to https://eyespyai.replit.app/, ensuring 3,000 emails/month free tier availability
+- July 10, 2025. Magic link URL fix: Resolved critical issue where APP_URL environment variable was incorrectly set to Resend API key, causing magic links to redirect to wrong URLs. Removed all APP_URL dependencies and hardcoded production domain (https://eyespyai.replit.app) to ensure secure authentication flow
 ```
 
 ## User Preferences

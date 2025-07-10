@@ -118,6 +118,7 @@ Changelog:
 - June 26, 2025. Session management: Fixed camera detection loss creating multiple sessions by separating session lifecycle from detection status, ensuring single continuous session regardless of temporary detection failures
 - June 27, 2025. Rep counting accuracy: Implemented adaptive threshold learning and intelligent detection recovery to fix legitimate rep detection failures. Relaxed angle thresholds (squat: 95°-135°, pushup: 90°-140°), reduced stability requirements (2 frames, 75° tolerance), and added user range learning for personalized detection
 - July 9, 2025. Authentication fixes: Fixed magic link URL routing issue (/auth/magic → /api/auth/magic), updated registration to require email collection, migrated database schema to make email mandatory for all users, ensuring magic links and password reset functionality work properly
+- July 10, 2025. Resend email service: Implemented production email service with Resend API integration, replaced console logging with real email delivery, configured magic link URLs to redirect to https://eyespyai.replit.app/, ensuring 3,000 emails/month free tier availability
 ```
 
 ## User Preferences

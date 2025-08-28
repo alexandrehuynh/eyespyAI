@@ -53,16 +53,19 @@ npm install
 
 ### 3. Set Up Database
 ```bash
-# Start PostgreSQL service
-brew services start postgresql@15
+# Option A: Use unified services (recommended)
+./start-unified.sh
 
-# Create database
-createdb eyespyai
+# Option B: Manual setup with unified services
+cd ../unified-services
+docker-compose up -d postgres
+docker exec main-postgres createdb -U postgres eyespyai
 ```
 
 ### 4. Set Environment Variables
 ```bash
-export DATABASE_URL="postgresql://localhost:5432/eyespyai"
+# For development with unified services
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/eyespyai"
 export SESSION_SECRET="your-secret-key-here"
 export NODE_ENV="development"
 ```
@@ -81,23 +84,29 @@ The application will be available at `http://localhost:3000`
 
 ## 🔧 Environment Configuration
 
-Create a `.env` file in the root directory:
+### Development with Unified Services
+The application is configured to work with the unified PostgreSQL service. No `.env` file is needed for basic setup.
 
-```env
-# Database Configuration
-DATABASE_URL=postgresql://localhost:5432/eyespyai
+### Manual Environment Variables
+For custom configurations, set these environment variables:
+
+```bash
+# Database Configuration (unified services)
+export DATABASE_URL="postgresql://postgres:password@localhost:5432/eyespyai"
 
 # Session Secret
-SESSION_SECRET=your-secret-key-here
+export SESSION_SECRET="your-secret-key-here"
 
 # Environment
-NODE_ENV=development
+export NODE_ENV="development"
+```
 
-# Optional: Email configuration for magic links and password reset
-# SMTP_HOST=smtp.gmail.com
-# SMTP_PORT=587
-# SMTP_USER=your-email@gmail.com
-# SMTP_PASS=your-app-password
+### Docker Compose
+EyeSpyAI is integrated into the unified services Docker Compose setup:
+
+```bash
+cd ../unified-services
+docker-compose up -d eyespyai
 ```
 
 ## 📱 Usage
@@ -119,7 +128,37 @@ The application uses PostgreSQL with the following main tables:
 - **user_progress**: Aggregated performance statistics
 - **auth_tokens**: Password reset and magic link tokens
 
-## 🚀 Deployment
+## 🐳 Docker Deployment
+
+### Using Unified Services (Recommended)
+```bash
+# Start all services including EyeSpyAI
+cd ../unified-services
+docker-compose up -d
+
+# Start only EyeSpyAI
+docker-compose up -d eyespyai
+
+# View logs
+docker-compose logs -f eyespyai
+
+# Stop services
+docker-compose stop eyespyai
+```
+
+### Standalone Docker Build
+```bash
+# Build the image
+docker build -t eyespyai .
+
+# Run the container
+docker run -p 3000:3000 \
+  -e DATABASE_URL="postgresql://postgres:password@host.docker.internal:5432/eyespyai" \
+  -e SESSION_SECRET="your-secret-key" \
+  eyespyai
+```
+
+## 🚀 Production Deployment
 
 ### Production Build
 ```bash
